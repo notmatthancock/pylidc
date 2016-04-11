@@ -494,7 +494,7 @@ class Annotation(Base):
             rgi = RegularGridInterpolator(points=(x_points, y_points, z_points), values=nodule)
             nodule = rgi(X).reshape(nx_new, ny_new, nz_new)
 
-            # Interpolate the mask volume
+            # Interpolate the mask volume.
             rgi = RegularGridInterpolator(points=(x_points, y_points, z_points), values=mask)
             mask = rgi(X).reshape(nx_new, ny_new, nz_new) > 0
 
