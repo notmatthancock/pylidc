@@ -7,9 +7,10 @@ class _Configuration(Base):
     For each configuration, key refers to the name of the configuration,
     and value refers to the corresponding value.
 
-    Currently, the only configuration option actually stored in the databaseis the path to where dicom files are located.
+    Currently, the only configuration option actually stored in the 
+    database is the path to where dicom files are located.
     """
     __tablename__ = 'configurations'
-    id            = sq.Column('id', sq.Integer, primary_key=True)
-    key           = sq.Column('key', sq.String, unique=True)
+    id            = sq.Column('id',    sq.Integer, primary_key=True)
+    key           = sq.Column('key',   sq.String, unique=True)
     value         = sq.Column('value', sq.String)
