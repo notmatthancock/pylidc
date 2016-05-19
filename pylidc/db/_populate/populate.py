@@ -3,10 +3,12 @@ import numpy as np
 from xml.etree import ElementTree
 import dicom
 
-assert not os.path.exists(os.path.join(os.path.pardir, 'pylidc.db')), "`pylidc.db` already exists. Aborting."
+assert not os.path.exists(os.path.join(os.path.pardir, 'pylidc.sqlite')), "`pylidc.sqlite` already exists. Aborting."
+
 
 # Change these. The dicom path should end with `LIDC-IDRI`, and the xml path should end with `tcia-lidc-xml`.
 dicom_root_path = '/media/matt/fatty/Data/LIDC-IDRI'
+# The 161-resubmitted-... file should replace the 161.xml file in this directory. I replace it by overwriting 161.xml while taking the name 161.xml. I'm not sure if this makes a difference.
 xml_root_path = '/home/matt/Downloads/tcia-lidc-xml'
 os.listdir(xml_root_path)
 
@@ -145,6 +147,11 @@ for count,xml_base_path in enumerate(xml_paths):
             annotation.contours = []
             rois = ann.findall('roi')
             for roi in rois:
+                # If the ROI only has a single edgemap, 
+                # this means the "contour" is just a single dot,
+                # which we consider a stray mark and therefore, ignore.
+                if len(roi.findall('edgeMap')) <= 1:
+                    continue
                 # The coords line looks cryptic, but all we're doing is taking all the edgmaps and putting
                 # them into a single string with x,y points separated by a newline.
                 z_pos = float(roi.find('imageZposition').text) 

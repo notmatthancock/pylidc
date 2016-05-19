@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, CheckButtons
 from scipy.spatial.distance import squareform
 from scipy.cluster import hierarchy
-from scipy.interpolate import RegularGridInterpolator
 
 _off_limits = ['id','study_instance_uid','series_instance_uid',
                'patient_id','slice_thickness','pixel_spacing',

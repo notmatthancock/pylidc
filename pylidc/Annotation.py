@@ -14,6 +14,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial import Delaunay
 from scipy.spatial.distance import pdist,squareform
 from scipy.interpolate import RegularGridInterpolator
+from scipy.stats import mode
 
 _char_to_word_ = ('Low', 'Medium-Low', 'Medium', 'Medium-High', 'High')
 _all_characteristics_ = \
@@ -82,7 +83,7 @@ class Annotation(Base):
             super(Annotation,self).__setattr__(name,value)
 
     ####################################
-    # Begin semantic attribute functions
+    # { Begin semantic attribute functions
     def Subtlety(self):
         """return subtlety value as semantic string"""
         s = self.subtlety
@@ -148,7 +149,7 @@ class Annotation(Base):
         s = self.malignancy
         assert s in range(1,6), "Malignancy score out of bounds."
         return _char_to_word_[ s-1 ] + ' Malignancy'
-    # End semantic attribute functions
+    # } End semantic attribute functions
     ####################################
 
     def all_characteristics_as_string(self):
@@ -178,20 +179,35 @@ class Annotation(Base):
         """
         return np.array([getattr(self,char) for char in _all_characteristics_])
 
-    def bbox(self):
+    def bbox(self, image_coords=False):
         """
         Return a 3 by 2 matrix, corresponding to the bounding box of the 
         annotation within the scan. If `scan_slice` is a numpy array 
         containing aslice of the scan, each slice of the annotation is 
         contained within the box:
 
-            bbox[1,0]:bbox[1,1], bbox[0,0]:bbox[0,1]
+            bbox[1,0]:bbox[1,1]+1, bbox[0,0]:bbox[0,1]+1
+
+        If `image_coords` is `True` then each annotation slice is 
+        instead contained within:
+            
+            bbox[0,0]:bbox[0,1]+1, bbox[1,0]:bbox[1,1]+1
 
         The last row of `bbox` give the inclusive lower and upper 
         bounds of the `image_z_position`.
         """
         matrix = self.contours_to_matrix()
-        return np.c_[matrix.min(axis=0), matrix.max(axis=0)]
+        bbox   = np.c_[matrix.min(axis=0), matrix.max(axis=0)]
+        return bbox if not image_coords else bbox[[1,0,2]]
+
+    def bbox_dimensions(self, image_coords=False):
+        """
+        Return the dimensions of the nodule bounding box in mm.
+        """
+        bb = self.bbox(image_coords)
+        df = np.diff(bb)[:,0]
+        df[:2] = df[:2]*self.scan.pixel_spacing
+        return df
 
     def centroid(self):
         """
@@ -275,9 +291,9 @@ class Annotation(Base):
         # first zval to the second zval but below the first point. We do 
         # the same thing for the top zval.
         if len(self.contours) != 1:
-            zvals = np.pad(zvals, 2, 'constant')
-            zvals[ 0] = zvals[ 0] - (zvals[1]-zvals[0])
-            zvals[-1] = zvals[-1] + (zvals[-1]-zvals[-2])
+            zlow  = zvals[ 0] - (zvals[1]-zvals[0])
+            zhigh = zvals[-1] + (zvals[-1]-zvals[-2])
+            zvals = np.r_[zlow, zvals, zhigh]
         else:
             zvals = None
 
@@ -481,15 +497,12 @@ class Annotation(Base):
         annotations.
         
         Note that this method doesn't account for a case where the nodule 
-        contour annotations "skip a slice". This situation is accounted 
-        for, however, in the `to_volume()` method.
-
+        contour annotations "skip a slice".
+        
         returns: mask, bounding_box
             `mask` is the boolean volume. In the original 
             512 x 512 x num_slices dicom volume, `mask` is a boolean 
             mask over the region, `bbox[i,0]:bbox[i,1]+1`, i=0,1,2
-
-        See also: `Annotation.to_volume()`
         """
         bbox = self.bbox()
         zs = np.unique([c.image_z_position for c in self.contours])
@@ -544,139 +557,6 @@ class Annotation(Base):
         # The first and second axes have to 
         # be swapped because of the reshape.
         return mask.swapaxes(0,1), bbox[[1,0,2]]
-
-    def to_volume(self, new_spacing=None,
-                  pad=[(0,0),(0,0),(0,0)], verbose=False):
-        """
-        Return the image scan volume limited to the bounding box of the
-        annotation. This also returns the corresponding boolean volume, 
-        corresponding to the contour annotations.
-
-        new_spacing: float, default None
-            If specified, both volumes are resampled to have voxels with the 
-            specified spacing uniformly (in mm).
-
-        pad: list of 3 2-tuples, (pad_before,pad_after)
-            Each tuple refers to the padding before and after the 
-            corresponding axes. Note that this voxel padding is done *before*
-            the volume is resampled.
-
-        verbose: boolean
-            Turn the loading statement on / off.
-
-        returns nodule, mask, bbox
-        """
-        # Initialize the bounding box and mask.
-        mask, bbox = self.as_boolean_mask()
-
-        images = self.scan.load_all_dicom_images(verbose)
-
-        img_zs = np.unique([
-            float(i.ImagePositionPatient[-1]) for i in images
-        ])
-        contour_zs = np.unique([
-            c.image_z_position for c in self.contours
-        ])
-
-        zi_start = (np.abs(bbox[2,0]-img_zs)).argmin()
-        zi_stop  = (np.abs(bbox[2,1]-img_zs)).argmin()
-
-        # This conditional block handles the case where 
-        # the contour annotations "skip a slice".
-        if mask.shape[2] != (zi_stop-zi_start+1):
-            old_mask = mask.copy()
-            
-            # Create the new mask with appropriate z-length.
-            mask = np.zeros((old_mask.shape[0],
-                             old_mask.shape[1],
-                             zi_stop-zi_start+1), dtype=np.bool)
-
-            # Map z's to an integer.
-            z_to_index = dict(zip(
-                            img_zs[zi_start:zi_stop+1],
-                            range(img_zs[zi_start:zi_stop+1].shape[0])
-                         ))
-
-            for k in range(old_mask.shape[2]):
-                mask[:,:, z_to_index[contour_zs[k]]] = old_mask[:,:,k]
-
-        if zi_start-pad[2][0] < 0 or zi_stop+pad[2][1] >= len(images):
-            msg = 'Specified z-padding results in out-of-bounds index.'
-            msg += ' index-pad=' + str(zi_start-pad[2][0]) + ','
-            msg += ' index+pad=' + str(zi_stop +pad[2][1])
-            raise IndexError(msg)
-
-        # Add padding to the indices and trim the images / img_zs.
-        zi_start -= pad[2][0]
-        zi_stop  += pad[2][1]
-        images   = images[  zi_start:zi_stop+1]
-        img_zs = img_zs[zi_start:zi_stop+1]
-
-        # Initialize the nodule CT value volume.
-        nodule = np.zeros(mask.shape)
-        # Add the padding to both volumes.
-        mask   = np.pad(mask,   pad_width=pad, mode='constant')
-        nodule = np.pad(nodule, pad_width=pad, mode='constant')
-
-        if int(bbox[0,0])-int(pad[0][0]) < 0 or \
-           int(bbox[0,1])+1+int(pad[0][1]) >= 512:
-            msg = 'Specified x-padding results in out-of-bounds index.'
-            msg += ' index-pad=%d,' % (int(bbox[0,0])-int(pad[0][0]))
-            msg += ' index+pad=%d.' % (int(bbox[0,1])+int(pad[0][1])+1)
-            raise IndexError(msg)
-        if int(bbox[1,0])-int(pad[1][0]) < 0 or \
-           int(bbox[1,1])+1+int(pad[1][1]) >= 512:
-            msg = 'Specified y-padding results in out-of-bounds index.'
-            msg += ' index-pad=%d,' % (int(bbox[1,0])-int(pad[1][0]))
-            msg += ' index+pad=%d.' % (int(bbox[1,1])+int(pad[1][1])+1)
-            raise IndexError(msg)
-
-        # Set the nodule volume CT values.
-        for i in range(len(images)):
-           nodule[:,:,i] = images[i].pixel_array[\
-               int(bbox[0,0])-int(pad[0][0]):int(bbox[0,1])+1+int(pad[0][1]),\
-               int(bbox[1,0])-int(pad[1][0]):int(bbox[1,1])+1+int(pad[1][1])
-            ]
-
-        if new_spacing is None:
-            return nodule, mask, bbox
-        else:
-            nx,ny,nz = nodule.shape
-            x_points = np.arange(nx) * self.scan.pixel_spacing
-            y_points = np.arange(ny) * self.scan.pixel_spacing
-            z_points = img_zs.copy()
-
-            nx_new = int(np.ceil(x_points[-1] / new_spacing))
-            ny_new = int(np.ceil(y_points[-1] / new_spacing))
-            nz_new = int(np.ceil((z_points.max()-z_points.min())/new_spacing))
-
-            x_points_new = np.arange(0, x_points[-1], new_spacing)
-            y_points_new = np.arange(0, y_points[-1], new_spacing)
-            z_points_new = np.arange(z_points.min(),
-                                     z_points.max(),
-                                     new_spacing)
-
-            x,y,z = np.meshgrid(x_points_new,
-                                y_points_new,
-                                z_points_new, indexing='ij')
-
-            X = np.c_[x.flatten(), y.flatten(), z.flatten()]
-
-            # Interpolate the nodule CT volume.
-            rgi = RegularGridInterpolator(
-                    points=(x_points, y_points, z_points),
-                    values=nodule
-                  )
-            nodule = rgi(X).reshape(nx_new, ny_new, nz_new)
-
-            # Interpolate the mask volume.
-            rgi = RegularGridInterpolator(
-                    points=(x_points, y_points, z_points),
-                    values=mask
-                  )
-            mask = rgi(X).reshape(nx_new, ny_new, nz_new) > 0
-
-            return nodule, mask, bbox
 
     def _as_set(self):
         """
