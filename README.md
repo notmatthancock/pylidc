@@ -4,6 +4,8 @@ This python module implements an object relational mapping (ORM) to an sqlite da
 
 ![](https://raw.githubusercontent.com/pylidc/pylidc/master/img/viz-in-scan-example.png)
 
+![](https://raw.githubusercontent.com/pylidc/pylidc/master/img/viz-in-3d-example.png)
+
 See below for installation details and for examples.
 
 ## Installation and dependencies

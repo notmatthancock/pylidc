@@ -326,14 +326,15 @@ class Annotation(Base):
         the nodule deviates from a roughly spherical shape.
         """
         fig = plt.figure(figsize=(7,7))
-        ax  = fig.add_subplot(111,projection='3d')
+        ax  = fig.add_subplot(111, projection='3d')
 
         points = np.vstack([
             c.to_matrix() for c in self.contours if c.inclusion
         ])
         points[:,:2] = points[:,:2] * self.scan.pixel_spacing
 
-        # Center the points at the origin.
+        # Center the points at the origin for 
+        # spherical coordinates conversion.
         points = points - points.mean(axis=0)
 
         # Triangulate the azimuth and zenith transformation.
@@ -342,10 +343,17 @@ class Annotation(Base):
         azi_zen = np.c_[azimuth.flatten(),zenith.flatten()]
         triangles = Delaunay(azi_zen).simplices
 
-        # Plot the points!
-        ax.plot_trisurf(points[:,0],
-                        points[:,1],
-                        points[:,2], triangles=triangles, **kwargs)
+        # Start the points at 0 on every axis.
+        # This lets the axis ticks to be interpreted as length in mm.
+        points = points - points.min(axis=0)
+
+        ax.set_xlabel('length (mm)')
+        ax.set_ylabel('length (mm)')
+        ax.set_zlabel('length (mm)')
+
+        # Plot the points.
+        ax.plot_trisurf(points[:,0], points[:,1], points[:,2],
+                        triangles=triangles, **kwargs)
         plt.show()
 
     def visualize_in_scan(self, verbose=True):
