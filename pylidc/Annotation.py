@@ -497,7 +497,7 @@ class Annotation(Base):
         """
         return np.vstack([c.to_matrix() for c in self.contours])
 
-    def as_boolean_mask(self):
+    def get_boolean_mask(self, return_bbox=False):
         """
         Return a boolean volume which corresponds to the bounding box 
         containing the nodule annotation. The slices of the volume are 
@@ -534,7 +534,7 @@ class Annotation(Base):
                 contour_matrix = contour.to_matrix()[:,:2]
 
                 # Turn the contour closed if it's not.
-                if (contour_matrix[0] != contour_matrix[-1]).all():
+                if (contour_matrix[0] != contour_matrix[-1]).any():
                     contour_matrix = np.append(contour_matrix,
                                                contour_matrix[0].reshape(1,2),
                                                axis=0)
@@ -543,7 +543,10 @@ class Annotation(Base):
                 # within the contour's bounding box.
                 path = mplpath.Path(contour_matrix, closed=True)
                 contains_pts = path.contains_points(test_points)
-                mask[:,:,zi] = contains_pts.reshape(mask.shape[:2])
+                contains_pts = contains_pts.reshape(mask.shape[:2])
+                # The logical or here prevents the cases where a single
+                # slice contains multiple inclusion regions.
+                mask[:,:,zi] = np.logical_or(mask[:,:,zi], contains_pts)
 
         # Second, we "turn off" pixels enclosed by exclusion contours.
         for contour in self.contours:
@@ -552,7 +555,7 @@ class Annotation(Base):
                 contour_matrix = contour.to_matrix()[:,:2]
 
                 # Turn the contour closed if it's not.
-                if (contour_matrix[0] != contour_matrix[-1]).all():
+                if (contour_matrix[0] != contour_matrix[-1]).any():
                     contour_matrix = np.append(contour_matrix,
                                                contour_matrix[0].reshape(1,2),
                                                axis=0)
@@ -564,7 +567,10 @@ class Annotation(Base):
 
         # The first and second axes have to 
         # be swapped because of the reshape.
-        return mask.swapaxes(0,1), bbox[[1,0,2]]
+        if return_bbox:
+            return mask.swapaxes(0,1), bbox[[1,0,2]]
+        else:
+            return mask.swapaxes(0,1)
 
     def _as_set(self):
         """

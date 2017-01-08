@@ -7,10 +7,7 @@ import os
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
-def get_uniform_interpolated_ct_and_boolean_mask_cubic_volumes(
-    ann,
-    side_length = None, 
-    verbose = True ):
+def interp_uniform(ann, side_length=None, verbose=True):
     """
     Get volumes corresponding to the CT values about the nodule 
     and its corresponding boolean indicator mask. The resulting 
@@ -53,7 +50,7 @@ def get_uniform_interpolated_ct_and_boolean_mask_cubic_volumes(
     bboxd = ann.bbox_dimensions(image_coords=True)
     rxy   = ann.scan.pixel_spacing
 
-    # { Begin input checks.
+    # Begin input checks.
     if side_length is None:
         side_length = np.ceil(bboxd.max())
     else:
@@ -61,7 +58,7 @@ def get_uniform_interpolated_ct_and_boolean_mask_cubic_volumes(
             raise ValueError('`side_length` must be greater\
                                than any bounding box dimension.')
     side_length = float(side_length)
-    # } End input checks.
+    # End input checks.
 
     # Load the images. Get the z positions.
     images = ann.scan.load_all_dicom_images(verbose=verbose)
@@ -70,7 +67,7 @@ def get_uniform_interpolated_ct_and_boolean_mask_cubic_volumes(
     ])
 
     # Initialize the bounding box and mask.
-    mask,_ = ann.as_boolean_mask()
+    mask = ann.get_boolean_mask()
 
     # Get the z values of the contours.
     contour_zs = np.unique([
