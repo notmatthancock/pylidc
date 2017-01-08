@@ -2,7 +2,8 @@
 
 This python module implements an object relational mapping (ORM) to an sqlite database containing the annotation information from the XML files provided by the LIDC dataset. This module is intended to make for easier data querying and to include functional aspects of the data models in addition to pure attribute information, e.g., computing nodule centroids from contour attributes.
 
-![](https://raw.githubusercontent.com/pylidc/pylidc/master/img/viz-in-scan-example.png) ![](https://raw.githubusercontent.com/pylidc/pylidc/master/img/viz-in-3d-example.png)
+![](https://raw.githubusercontent.com/pylidc/pylidc/master/img/viz-in-scan-example.png)
+![](https://raw.githubusercontent.com/pylidc/pylidc/master/img/viz-in-3d-example.png)
 
 See below for installation details and for examples.
 
