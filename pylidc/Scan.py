@@ -88,7 +88,7 @@ class Scan(Base):
         else:
             super(Scan,self).__setattr__(name,value)
     
-    def get_path_to_dicom_files(self):
+    def get_path_to_dicom_files(self, checkpath=True):
         """
         Get the path to where the dicom files are stored for this scan, 
         relative to the root path set in the main module 
@@ -103,6 +103,7 @@ class Scan(Base):
             >>> print scan.get_path_to_dicom_files()
             >>> # => /data_storage_path/LIDC-IDRI/LIDC-IDRI-0078/1.3.6.1.4.1.14519.5.2.1.6279.6001.339170810277323131167631068432/1.3.6.1.4.1.14519.5.2.1.6279.6001.303494235102183795724852353824
         """
+        # Get the path from the database.
         module_path = os.path.dirname(os.path.abspath(__file__))
         path    = os.path.join(module_path,'db','pylidc.sqlite')
         engine  = create_engine('sqlite:///'+path)
@@ -112,10 +113,19 @@ class Scan(Base):
                             _Configuration.key == 'path_to_dicom_files' \
                          ).first().value
         session.close()
-        return os.path.join(scan_root_path,
+
+        path = os.path.join(scan_root_path,
                             self.patient_id,
                             self.study_instance_uid,
                             self.series_instance_uid)
+        errstr = \
+        "The path:\n\n %s \n\n doesn't exist.\n\
+        Does the folder exists there? Have you set set the root path to \n\
+        your dicom folder, using `pylidc.set_path_to_dicom_files()`?" % path 
+
+        if checkpath:
+            assert os.path.exists(path), errstr
+        return path
 
     def annotations_with_matching_overlap(self, tol=0.5,
                                           return_overlap_scores=False):
@@ -182,10 +192,25 @@ class Scan(Base):
             return clusters
 
     def load_all_dicom_images(self, verbose=True):
+        """
+        Load all the DICOM images assocated with this scan and return as list.
+
+        The listed is sorted according to the Scan object's
+        `sorted_dicom_file_names` attribute, which *should* load the images
+        in order of increasing z index of the `ImagePositionPatient` attribute
+        of the DICOM files.
+
+        Example:
+            >>> scan = pl.query(pl.Scan).first()
+            >>> images = scan.load_all_dicom_images()
+            >>> zs = [float(img.ImagePositionPatient[2]) for img in images]
+            >>> print zs[1] - zs[0], img.SliceThickness, scan.slice_thickness
+            >>>
+            >>> import matplotlib.pyplot as plt
+            >>> plt.imshow( images[0].pixel_array, cmap=plt.cm.gray )
+            >>> plt.show()
+        """
         path = self.get_path_to_dicom_files()
-        assert os.path.exists(path), "The path:\n\n %s \n\n doesn't exist.\
-        Does the folder exists there? Have you set set the root path to \
-        your dicom folder, using `pylidc.set_path_to_dicom_files()`?" % path 
 
         if verbose: print("Loading dicom files ... This may take a moment.")
 
@@ -209,10 +234,7 @@ class Scan(Base):
 
     def visualize(self):
         """
-        Visualize the scan.
-
-        TODO: Matching nodule annnotations could be
-        viewed on top of the scan as well.
+        Visualize the scan without any annotations.
         """
         images = self.load_all_dicom_images()
 
@@ -268,9 +290,6 @@ class Scan(Base):
         Return the scan as a 3D numpy array volume.
         """
         path = self.get_path_to_dicom_files()
-        assert os.path.exists(path), "The path:\n\n %s \n\n doesn't exist. \
-        Does the folder exists there? Have you set set the root path to \
-        your dicom folder, using `pylidc.set_path_to_dicom_files()`?" % path 
 
         images = []
         for dicom_file_name in self.sorted_dicom_file_names.split(','):

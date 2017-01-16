@@ -619,6 +619,208 @@ class Annotation(Base):
         # Return the included points minus the excluded points.
         return included.difference( excluded )
 
+    def uniform_cubic_resample(self, side_length=None, verbose=True):
+        """
+        Get the CT value volume and respective boolean mask volume. The 
+        volumes are interpolated and resampled to have uniform spacing of 1mm
+        along each dimension. The resulting volumes are cubic of the 
+        specified `side_length`. Thus, the returned volumes have dimensions,
+        `(side_length+1,)*3` (since `side_length` is the spacing).
+
+
+        side_length: integer, default None
+            The physical length of each side of the new cubic 
+            volume in millimeters. The default, `None`, takes the
+            max of the nodule's bounding box dimensions.
+
+            If this parameter is not `None`, then it should be 
+            greater than any bounding box dimension. If the specified 
+            `side_length` requires a padding which results in an 
+            out-of-bounds image index, then the image is padded with 
+            the minimum CT image value.
+
+        verbose: boolean, default True
+            Turn the loading statement on / off.
+
+        returns: ct_volume, mask
+            `ct_volume` and `mask` are the resampled CT and boolean 
+            volumes, respectively.
+
+        Example:
+            >>> self = pl.query(pl.Annotation).first()
+            >>> ct_volume, mask = ann.uniform_cubic_resample(side_length=70)
+            >>> print ct_volume.shape, mask.shape
+            >>> # => (71, 71, 71), (71, 71, 71)
+            >>> # (Nodule is centered at (35,35,35).)
+            >>>
+            >>> import matplotlib.pyplot as plt
+            >>> plt.imshow( ct_volume[:,:,35] * (0.2 + 0.8*mask[:,:,35]) )
+            >>> plt.show()
+        """
+        bbox  = self.bbox(image_coords=True)
+        bboxd = self.bbox_dimensions(image_coords=True)
+        rxy   = self.scan.pixel_spacing
+
+        imin,imax = bbox[0].astype(int)
+        jmin,jmax = bbox[1].astype(int)
+
+        xmin,xmax = imin*rxy, imax*rxy
+        ymin,ymax = jmin*rxy, jmax*rxy
+        zmin,zmax = bbox[2]
+
+        # { Begin input checks.
+        if side_length is None:
+            side_length = np.ceil(bboxd.max())
+        else:
+            if not isinstance(side_length, int):
+                raise ValueError('`side_length` must be an integer.')
+            if side_length < bboxd.max():
+                raise ValueError('`side_length` must be greater\
+                                   than any bounding box dimension.')
+        side_length = float(side_length)
+        # } End input checks.
+
+        # Load the images. Get the z positions.
+        images = self.scan.load_all_dicom_images(verbose=verbose)
+        img_zs = [float(img.ImagePositionPatient[-1]) for img in images]
+        img_zs = np.unique(img_zs)
+
+        # Get the z values of the contours.
+        contour_zs = np.unique([c.image_z_position for c in self.contours])
+
+        # Get the indices where the nodule stops and starts
+        # with respect to the scan z values.
+        kmin = np.where(zmin == img_zs)[0][0]
+        kmax = np.where(zmax == img_zs)[0][0]
+
+        # Initialize the boolean mask.
+        mask = self.get_boolean_mask()
+
+        ########################################################
+        # { Begin mask corrections.
+
+        # This block handles the case where 
+        # the contour selfotations "skip a slice".
+        if mask.shape[2] != (kmax-kmin+1):
+            old_mask = mask.copy()
+            
+            # Create the new mask with appropriate z-length.
+            mask = np.zeros((old_mask.shape[0],
+                             old_mask.shape[1],
+                             kmax-kmin+1), dtype=np.bool)
+
+            # Map z's to an integer.
+            z_to_index = dict(zip(
+                            img_zs[kmin:kmax+1],
+                            range(img_zs[kmin:kmax+1].shape[0])
+                         ))
+
+            # Map each slice to its correct location.
+            for k in range(old_mask.shape[2]):
+                mask[:, :, z_to_index[contour_zs[k]] ] = old_mask[:,:,k]
+
+            # Get rid of the old one.
+            del old_mask
+
+        # } End mask corrections.
+        ########################################################
+
+        ########################################################
+        # { Begin interpolation grid creation.
+        #   (The points at which the volumes will be resampled.)
+
+        # Compute new interpolation grid points in x.
+        d = 0.5*(side_length-(xmax - xmin))
+        xhat, step = np.linspace(xmin-d, xmax+d, side_length+1, retstep=True)
+        assert abs(step-1) < 1e-5, "New x spacing != 1."
+
+        # Do the same for y.
+        d = 0.5*(side_length-(ymax - ymin))
+        yhat, step = np.linspace(ymin-d, ymax+d, side_length+1, retstep=True)
+        assert abs(step-1) < 1e-5, "New y spacing != 1."
+
+        # Do the same for y.
+        d = 0.5*(side_length-(zmax - zmin))
+        zhat, step = np.linspace(zmin-d, zmax+d, side_length+1, retstep=True)
+        assert abs(step-1) < 1e-5, "New z pixel spacing != 1."
+
+        # } End interpolation grid creation.
+        ########################################################
+
+        ########################################################
+        # { Begin grid creation.
+        #   (The points at which the volumes are assumed to be sampled.)
+
+        T = np.arange(0, 512)*rxy
+
+        if xhat[0] < 0:
+            ax = 0
+        else:
+            ax = (T < xhat[0]).sum() - 1
+        if xhat[-1] > T[-1]:
+            bx = 512
+        else:
+            bx = 512 - (T > xhat[-1]).sum() + 1
+
+        if yhat[0] < 0:
+            ay = 0
+        else:
+            ay = (T < yhat[0]).sum() - 1
+        if yhat[-1] > T[-1]:
+            by = 512
+        else:
+            by = 512 - (T > yhat[-1]).sum() + 1
+
+        if zhat[0] < img_zs[0]:
+            az = 0
+        else:
+            az = (img_zs < zhat[0]).sum() - 1
+        if zhat[-1] > img_zs[-1]:
+            bz = len(img_zs)
+        else:
+            bz = len(img_zs) - (img_zs > zhat[-1]).sum() + 1
+
+        x = T[ax:bx]
+        y = T[ay:by]
+        z = img_zs[az:bz]
+
+        # } End grid creation.
+        ########################################################
+
+
+        # Create the non-interpolated CT volume.
+        ctvol = np.zeros(x.shape+y.shape+z.shape, dtype=np.float64)
+        for k in range(z.shape[0]):
+            ctvol[:,:,k] = images[k+az].pixel_array[ax:bx, ay:by]
+
+        # We currently only have the boolean mask volume on the domain
+        # of the bounding box. Thus, we must "place it" in the appropriately
+        # sized volume (i.e., `ctvol.shape`). This is accomplished by
+        # padding `mask`.
+        padvals = [(imin-ax, bx-1-imax), # The `b` terms have a `+1` offset
+                   (jmin-ay, by-1-jmax), # from being an index that is
+                   (kmin-az, bz-1-kmax)] # correct with the `-1` here.
+        mask = np.pad(mask, pad_width=padvals,
+                      mode='constant', constant_values=False)
+
+        # Obtain minimum image value to use as const for interpolation.
+        fillval = min([img.pixel_array.min() for img in images])
+
+        ix,iy,iz = np.meshgrid(xhat, yhat, zhat, indexing='ij')
+        IXYZ = np.c_[ix.flatten(), iy.flatten(), iz.flatten()]
+
+        # Interpolate the nodule CT volume.
+        rgi = RegularGridInterpolator(points=(x, y, z), values=ctvol,
+                                      bounds_error=False, fill_value=fillval)
+        ictvol = rgi(IXYZ).reshape(ix.shape)
+
+        # Interpolate the mask volume.
+        rgi = RegularGridInterpolator(points=(x, y, z), values=mask,
+                                      bounds_error=False, fill_value=False)
+        imask = rgi(IXYZ).reshape(ix.shape) > 0
+
+        return ictvol, imask
+
 
 # Add the relationship to the Scan model.
 Scan.annotations = relationship('Annotation',
