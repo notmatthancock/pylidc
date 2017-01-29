@@ -249,7 +249,7 @@ class Scan(Base):
         ax_image.axis('off')
         
         ax_scan_info = fig.add_axes([0.1, 0.8, 0.3, 0.1])
-        ax_scan_info.set_axis_bgcolor('w')
+        ax_scan_info.set_facecolor('w')
         scan_info_table = ax_scan_info.table(
             cellText=[
                 ['Patient ID:', self.patient_id],
@@ -268,7 +268,7 @@ class Scan(Base):
 
         # Add the widgets.
         ax_slice = fig.add_axes([0.1, 0.1, 0.3, 0.05])
-        ax_slice.set_axis_bgcolor('w')
+        ax_slice.set_facecolor('w')
         sslice = Slider(ax_slice,
             'Z: %.3f'%float(images[current_slice].ImagePositionPatient[-1]),
              0, len(images)-1, valinit=current_slice, valfmt=u'Slice: %d')

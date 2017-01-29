@@ -7,17 +7,26 @@ from .Scan import Scan
 import dicom
 import numpy as np
 import matplotlib.pyplot as plt
+
+# For contour to boolean mask function.
 import matplotlib.path as mplpath
+
+# For CT volume visualizer.
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Slider, Button, CheckButtons
-from mpl_toolkits.mplot3d import Axes3D
-from scipy.spatial import Delaunay
+
+# For diameter estimation.
 from scipy.spatial.distance import pdist,squareform
 from scipy.interpolate import RegularGridInterpolator
-from scipy.stats import mode
 
-_char_to_word_ = ('Low', 'Medium-Low', 'Medium', 'Medium-High', 'High')
-_all_characteristics_ = \
+# For 3D visualizer.
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from scipy.spatial import Delaunay
+from scipy.ndimage.morphology import distance_transform_edt as dtrans
+from skimage.measure import marching_cubes
+
+_all_features_ = \
    ('subtlety',
     'internalStructure',
     'calcification',
@@ -28,7 +37,7 @@ _all_characteristics_ = \
     'texture',
     'malignancy')
 _off_limits = ['id','scan_id','_nodule_id','scan'] + \
-              list(_all_characteristics_)
+              list(_all_features_)
 
 class Annotation(Base):
     """
@@ -43,7 +52,7 @@ class Annotation(Base):
         >>> ann = pl.query(pl.Annotation).filter(pl.Annotation.spiculation > 3).first()
         >>> print ann.spiculation
         >>> # => 4
-        >>> # Each nodule characteristic has a helper function to print the semantic value.
+        >>> # Each nodule feature has a helper function to print the semantic value.
         >>> print ann.Spiculation()
         >>> # => Medium-High Spiculation
         >>> 
@@ -85,20 +94,26 @@ class Annotation(Base):
     ####################################
     # { Begin semantic attribute functions
     def Subtlety(self):
-        """return subtlety value as semantic string"""
+        """return subtlety value as string"""
         s = self.subtlety
         assert s in range(1,6), "Subtlety score out of bounds."
-        return _char_to_word_[::-1][ s-1 ] + ' Subtlety'
+        if   s == 1: return 'Extremely Subtle'
+        elif s == 2: return 'Moderately Subtle'
+        elif s == 3: return 'Fairly Subtle'
+        elif s == 4: return 'Moderately Obvious'
+        elif s == 5: return 'Obvious'
+
     def InternalStructure(self):
-        """return internalStructure value as semantic string"""
+        """return internalStructure value as string"""
         s = self.internalStructure
         assert s in range(1,5), "Internal structure score out of bounds."
         if   s == 1: return 'Soft Tissue'
         elif s == 2: return 'Fluid'
         elif s == 3: return 'Fat'
         elif s == 4: return 'Air'
+
     def Calcification(self):
-        """return calcification value as semantic string"""
+        """return calcification value as string"""
         s = self.calcification
         assert s in range(1,7), "Calcification score out of bounds."
         if   s == 1: return 'Popcorn'
@@ -107,56 +122,76 @@ class Annotation(Base):
         elif s == 4: return 'Non-central'
         elif s == 5: return 'Central'
         elif s == 6: return 'Absent'
+
     def Sphericity(self):
-        """return sphericity value as semantic string"""
+        """return sphericity value as string"""
         s = self.sphericity
         assert s in range(1,6), "Sphericity score out of bounds."
         if   s == 1: return 'Linear'
-        elif s == 2: return 'Ovoid Linear'
+        elif s == 2: return 'Ovoid/Linear'
         elif s == 3: return 'Ovoid'
-        elif s == 4: return 'Ovoid Round'
+        elif s == 4: return 'Ovoid/Round'
         elif s == 5: return 'Round'
+
     def Margin(self):
-        """return margin value as semantic string"""
+        """return margin value as string"""
         s = self.margin
         assert s in range(1,6), "Margin score out of bounds."
-        if   s == 1: return 'Poor'
-        elif s == 2: return 'Near Poor'
-        elif s == 3: return 'Medium'
+        if   s == 1: return 'Poorly Defined'
+        elif s == 2: return 'Near Poorly Defined'
+        elif s == 3: return 'Medium Margin'
         elif s == 4: return 'Near Sharp'
         elif s == 5: return 'Sharp'
+
     def Lobulation(self):
-        """return lobulation value as semantic string"""
+        """return lobulation value as string"""
         s = self.lobulation
         assert s in range(1,6), "Lobulation score out of bounds."
-        return _char_to_word_[ s-1 ] + ' Lobulation'
+        if   s == 1: return 'No Lobulation'
+        elif s == 2: return 'Nearly No Lobulation'
+        elif s == 3: return 'Medium Lobulation'
+        elif s == 4: return 'Near Marked Lobulation'
+        elif s == 5: return 'Marked Lobulation'
+
     def Spiculation(self):
-        """return spiculation value as semantic string"""
+        """return spiculation value as string"""
         s = self.spiculation
         assert s in range(1,6), "Spiculation score out of bounds."
-        return _char_to_word_[ s-1 ] + ' Spiculation'
+        if   s == 1: return 'No Spiculation'
+        elif s == 2: return 'Nearly No Spiculation'
+        elif s == 3: return 'Medium Spiculation'
+        elif s == 4: return 'Near Marked Spiculation'
+        elif s == 5: return 'Marked Spiculation'
+
     def Texture(self):
-        """return texture value as semantic string"""
+        """return texture value as string"""
         s = self.texture
         assert s in range(1,6), "Texture score out of bounds."
-        if   s == 1: return 'Non-Solid / Ground Glass Opacity Texture'
-        elif s == 2: return 'Non-Solid or Mixed Texture'
-        elif s == 3: return 'Part Solid or Mixed Texture'
-        elif s == 4: return 'Mixed or Solid Texure'
-        elif s == 5: return 'Solid Texture'
+        if   s == 1: return 'Non-Solid/GGO'
+        elif s == 2: return 'Non-Solid/Mixed'
+        elif s == 3: return 'Part Solid/Mixed'
+        elif s == 4: return 'Solid/Mixed'
+        elif s == 5: return 'Solid'
+
     def Malignancy(self):
-        """return malignancy value as semantic string"""
+        """return malignancy value as string"""
         s = self.malignancy
         assert s in range(1,6), "Malignancy score out of bounds."
-        return _char_to_word_[ s-1 ] + ' Malignancy'
-    # } End semantic attribute functions
+        if   s == 1: return 'Highly Unlikely'
+        elif s == 2: return 'Moderately Unlikely'
+        elif s == 3: return 'Indeterminate'
+        elif s == 4: return 'Moderately Suspicious'
+        elif s == 5: return 'Highly Suspicious'
+
+
+    # } End attribute functions
     ####################################
 
-    def all_characteristics_as_string(self):
+    def all_features_as_string(self):
         """
-        Return all characteristic values as a string table.
+        Return all feature values as a string table.
         """
-        chars1 = _all_characteristics_
+        chars1 = _all_features_
         chars2 = [ch.title() for ch in chars1]
         chars2[chars2.index('Internalstructure')] = 'InternalStructure'
 
@@ -172,12 +207,12 @@ class Annotation(Base):
             s += '\n'
         return s[:-1] # cut the trailing newline character
 
-    def all_characteristics_as_array(self):
+    def all_features_as_array(self):
         """
-        Return all characteristic values as a numpy array in the order 
-        presented in `pylidc._all_characteristics_`.
+        Return all feature values as a numpy array in the order 
+        presented in `pylidc._all_features_`.
         """
-        return np.array([getattr(self,char) for char in _all_characteristics_])
+        return np.array([getattr(self,char) for char in _all_features_])
 
     def bbox(self, image_coords=False):
         """
@@ -312,49 +347,55 @@ class Annotation(Base):
 
             volume += (1. if contour.inclusion else -1.) * area * spacing_z
         return volume
-    
-    def visualize_in_3d(self,**kwargs):
+
+    def visualize_in_3d(self, edgecolor='0.2', cmap='viridis'):
         """
-        This method is for rough visualization only, and could look nasty 
-        if the annotated nodule has a shape that deviates significantly 
-        from spherical. Any keyword argument that is accepted by matplotlib's 
-        `plot_trisurf` function can passed as an argument to this function.
+        Visualize in 3d a triangulation of the nodule's surface.
 
-        The surface of the annotated nodule is triangulated by transforming 
-        the annotated contours into spherical coordinates, and triangulating 
-        the azimuth and zenith angles. Again, this could look quite bad if 
-        the nodule deviates from a roughly spherical shape.
+        edgecolor: string color or rgb 3-tuple
+            Sets edgecolors of triangulation.
+
+        cmap: matplotlib colormap string.
+            Sets the facecolors of the triangulation.
+            See `matplotlib.cm.cmap_d.keys()` for all available.
+
+        Example:
+            >>> ann = pl.query(pl.Annotation).first()
+            >>> ann.visualize_in_3d(edgecolor='green', cmap='autumn')
         """
-        fig = plt.figure(figsize=(7,7))
-        ax  = fig.add_subplot(111, projection='3d')
+        if cmap not in plt.cm.cmap_d.keys():
+            raise ValueError("Invalid `cmap`. See `plt.cm.cmap_d.keys()`.")
 
-        points = np.vstack([
-            c.to_matrix() for c in self.contours if c.inclusion
-        ])
-        points[:,:2] = points[:,:2] * self.scan.pixel_spacing
+        mask = self.get_boolean_mask()
+        mask = np.pad(mask, [(1,1), (1,1), (1,1)], 'constant') # Cap the ends.
+        dist = dtrans(mask)
 
-        # Center the points at the origin for 
-        # spherical coordinates conversion.
-        points = points - points.mean(axis=0)
+        rxy  = self.scan.pixel_spacing
+        rz   = self.scan.slice_thickness
+        verts, faces = marching_cubes(dist, 0, spacing=(rxy, rxy, rz))
+        maxes = np.ceil(verts.max(axis=0))
 
-        # Triangulate the azimuth and zenith transformation.
-        azimuth = np.arctan2(points[:,1],points[:,0])
-        zenith  = np.arccos(points[:,2] / np.linalg.norm(points,axis=1))
-        azi_zen = np.c_[azimuth.flatten(),zenith.flatten()]
-        triangles = Delaunay(azi_zen).simplices
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
 
-        # Start the points at 0 on every axis.
-        # This lets the axis ticks to be interpreted as length in mm.
-        points = points - points.min(axis=0)
+        t = np.linspace(0, 1, faces.shape[0])
+        mesh = Poly3DCollection(verts[faces], 
+                                edgecolor=edgecolor,
+                                facecolors=plt.cm.cmap_d[cmap](t))
+        ax.add_collection3d(mesh)
 
+        ax.set_xlim(0, maxes[0])
         ax.set_xlabel('length (mm)')
+
+        ax.set_ylim(0, maxes[1])
         ax.set_ylabel('length (mm)')
+
+        ax.set_zlim(0, maxes[2])
         ax.set_zlabel('length (mm)')
 
-        # Plot the points.
-        ax.plot_trisurf(points[:,0], points[:,1], points[:,2],
-                        triangles=triangles, **kwargs)
+        plt.tight_layout()
         plt.show()
+
 
     def visualize_in_scan(self, verbose=True):
         """
@@ -395,7 +436,7 @@ class Annotation(Base):
         
         # Add the scan info table
         ax_scan_info = fig.add_axes([0.1, 0.8, 0.3, 0.1])
-        ax_scan_info.set_axis_bgcolor('w')
+        ax_scan_info.set_facecolor('w')
         scan_info_table = ax_scan_info.table(
             cellText=[
                 ['Patient ID:', self.scan.patient_id],
@@ -413,13 +454,13 @@ class Annotation(Base):
         ax_scan_info.set_xticks([])
         ax_scan_info.set_yticks([])
 
-        # Add annotations / characteristics table.
+        # Add annotations / features table.
         ax_annotation_info = fig.add_axes([0.1, 0.45, 0.3, 0.25])
-        ax_annotation_info.set_axis_bgcolor('w')
+        ax_annotation_info.set_facecolor('w')
 
         # Create the rows to be displayed in the annotations table.
         cell_text = []
-        for c in _all_characteristics_:
+        for c in _all_features_:
             row = []
             cname = c.capitalize()
             if cname.startswith('Int'):
@@ -446,14 +487,14 @@ class Annotation(Base):
 
         # Add the checkbox for turning contours on / off.
         ax_contour_checkbox = fig.add_axes([0.1, 0.25, 0.1, 0.15])
-        ax_contour_checkbox.set_axis_bgcolor('w')
+        ax_contour_checkbox.set_facecolor('w')
         contour_checkbox = CheckButtons(ax_contour_checkbox,
                                         ('Show Contours',), (True,))
         contour_checkbox.is_checked = True
 
         # Add the widgets.
         ax_slice = fig.add_axes([0.1, 0.1, 0.3, 0.05])
-        ax_slice.set_axis_bgcolor('w')
+        ax_slice.set_facecolor('w')
         txt = 'Z: %.3f'%float(images[current_slice].ImagePositionPatient[-1]) 
         sslice = Slider(ax_slice,
                         txt,
@@ -751,35 +792,52 @@ class Annotation(Base):
         # { Begin grid creation.
         #   (The points at which the volumes are assumed to be sampled.)
 
+        # a[x|y|z], b[x|y|z] are the start / stop indexes for the 
+        # (non resample) sample grids along each respective axis.
+
+        # It helps to draw a diagram. For example,
+        #
+        # *--*--*-- ...
+        # x3 x4 x5
+        #  *---*---*--- ...
+        #  xhat0
+        #
+        # In this case, `ax` would be chosen to be 3
+        # since this is the index directly to the left of 
+        # `xhat[0]`. If `xhat[0]` is below any grid point,
+        # then `ax` is the minimum possible index, 0. A similar
+        # diagram helps with the `bx` index.
+
         T = np.arange(0, 512)*rxy
 
-        if xhat[0] < 0:
+        if xhat[0] <= 0:
             ax = 0
         else:
             ax = (T < xhat[0]).sum() - 1
-        if xhat[-1] > T[-1]:
+        if xhat[-1] >= T[-1]:
             bx = 512
         else:
             bx = 512 - (T > xhat[-1]).sum() + 1
 
-        if yhat[0] < 0:
+        if yhat[0] <= 0:
             ay = 0
         else:
             ay = (T < yhat[0]).sum() - 1
-        if yhat[-1] > T[-1]:
+        if yhat[-1] >= T[-1]:
             by = 512
         else:
             by = 512 - (T > yhat[-1]).sum() + 1
 
-        if zhat[0] < img_zs[0]:
+        if zhat[0] <= img_zs[0]:
             az = 0
         else:
             az = (img_zs < zhat[0]).sum() - 1
-        if zhat[-1] > img_zs[-1]:
+        if zhat[-1] >= img_zs[-1]:
             bz = len(img_zs)
         else:
             bz = len(img_zs) - (img_zs > zhat[-1]).sum() + 1
-
+        
+        # These are the actual grids.
         x = T[ax:bx]
         y = T[ay:by]
         z = img_zs[az:bz]

@@ -37,7 +37,7 @@ _session     = _sessionmaker(bind=_engine)()
 # Public stuff.
 from .Scan import Scan
 from .Annotation import Annotation
-from .Annotation import _all_characteristics_ 
+from .Annotation import _all_features_ as feature_names 
 from .Contour import Contour
 
 def query(*args):
@@ -45,7 +45,7 @@ def query(*args):
     Wraps the sqlalchemy session object. Some example usage:
     
         >>> import pylidc as pl
-        >>> qu = pl.query(pl.Scan).filter(pl.Scan.resolution_z <= 1.)
+        >>> qu = pl.query(pl.Scan).filter(pl.Scan.slice_thickness <= 1.)
         >>> print qu.count()
         >>> # => 97
         >>> scan = qu.first()
