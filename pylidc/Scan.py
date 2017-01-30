@@ -1,4 +1,6 @@
 import os
+import pkg_resources as _pr
+
 import sqlalchemy as sq
 from sqlalchemy.orm import relationship
 from sqlalchemy import create_engine
@@ -104,13 +106,12 @@ class Scan(Base):
             >>> # => /data_storage_path/LIDC-IDRI/LIDC-IDRI-0078/1.3.6.1.4.1.14519.5.2.1.6279.6001.339170810277323131167631068432/1.3.6.1.4.1.14519.5.2.1.6279.6001.303494235102183795724852353824
         """
         # Get the path from the database.
-        module_path = os.path.dirname(os.path.abspath(__file__))
-        path    = os.path.join(module_path,'db','pylidc.sqlite')
-        engine  = create_engine('sqlite:///'+path)
+        dbpath  = _pr.resource_filename('pylidc', 'pylidc.sqlite')
+        engine  = create_engine('sqlite:///'+dbpath)
         session = sessionmaker(bind=engine)()
         scan_root_path = session.query(_Configuration)
-        scan_root_path = scan_root_path.filter(\
-                            _Configuration.key == 'path_to_dicom_files' \
+        scan_root_path = scan_root_path.filter(
+                            _Configuration.key == 'path_to_dicom_files'
                          ).first().value
         session.close()
 
@@ -228,7 +229,7 @@ class Scan(Base):
 
         images = []
         for dicom_file_name in sorted_fnames:
-            with open( os.path.join(path, dicom_file_name) ) as f:
+            with open(os.path.join(path, dicom_file_name), 'rb') as f:
                 images.append( dicom.read_file(f) )
         return images
 
@@ -239,7 +240,7 @@ class Scan(Base):
         images = self.load_all_dicom_images()
 
         fig = plt.figure(figsize=(16,8))
-        current_slice = len(images) / 2
+        current_slice = int( len(images) / 2 )
 
         ax_image = fig.add_axes([0.5,0.0,0.5,1.0])
         img = ax_image.imshow(images[current_slice].pixel_array,

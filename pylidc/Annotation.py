@@ -26,7 +26,7 @@ from scipy.spatial import Delaunay
 from scipy.ndimage.morphology import distance_transform_edt as dtrans
 from skimage.measure import marching_cubes
 
-_all_features_ = \
+feature_names = \
    ('subtlety',
     'internalStructure',
     'calcification',
@@ -36,8 +36,9 @@ _all_features_ = \
     'spiculation',
     'texture',
     'malignancy')
+
 _off_limits = ['id','scan_id','_nodule_id','scan'] + \
-              list(_all_features_)
+              list(feature_names)
 
 class Annotation(Base):
     """
@@ -187,32 +188,38 @@ class Annotation(Base):
     # } End attribute functions
     ####################################
 
-    def all_features_as_string(self):
+    def feature_vals(self, return_str=False):
+        """
+        Return all feature values as a numpy array in the order 
+        presented in `feature_names`.
+
+        return_str: bool, default False
+            If True, a list of strings is also returned, corresponding
+            to the meaning of each numerical feature value.
+        """
+        fvals = np.array([getattr(self,f) for f in feature_names])
+        if return_str:
+            caps = [f.title() for f in feature_names]
+            k = caps.index('Internalstructure')
+            caps[k] = 'InternalStructure'
+            return fvals, [getattr(self, c)() for c in caps]
+        else:
+            return fvals
+
+    def print_formatted_feature_table(self):
         """
         Return all feature values as a string table.
         """
-        chars1 = _all_features_
-        chars2 = [ch.title() for ch in chars1]
-        chars2[chars2.index('Internalstructure')] = 'InternalStructure'
+        fnames = feature_names
+        fvals, fstrings = self.feature_vals(True)
 
-        s = ('%-18s   %-24s   %-2s'%('Characteristic', 'Semantic value','#'))
-        s+= '\n'
-        s+= ('%-18s   %-24s   %-2s' % ('-', '-', '-')) + '\n'
+        print('%-18s   %-24s   %-2s'%('Feature', 'Meaning','#'))
+        print('%-18s   %-24s   %-2s' % ('-', '-', '-'))
 
-        for i in range(len(chars1)):
-            attrs = (chars2[i],\
-                     getattr(self,chars2[i])(),
-                     getattr(self,chars1[i]))
-            s += '%-18s | %-24s | %-2d' % attrs
-            s += '\n'
-        return s[:-1] # cut the trailing newline character
+        for i in range(len(fnames)):
+            print('%-18s | %-24s | %-2d'%(fnames[i].title(), 
+                                          fstrings[i], fvals[i]))
 
-    def all_features_as_array(self):
-        """
-        Return all feature values as a numpy array in the order 
-        presented in `pylidc._all_features_`.
-        """
-        return np.array([getattr(self,char) for char in _all_features_])
 
     def bbox(self, image_coords=False):
         """
@@ -460,15 +467,15 @@ class Annotation(Base):
 
         # Create the rows to be displayed in the annotations table.
         cell_text = []
-        for c in _all_features_:
+        for f in feature_names:
             row = []
-            cname = c.capitalize()
-            if cname.startswith('Int'):
-                cname = 'InternalStructure'
+            fname = f.capitalize()
+            if fname.startswith('Int'):
+                fname = 'InternalStructure'
 
-            row.append(cname)
-            row.append(getattr(self,cname)())
-            row.append(getattr(self,c))
+            row.append(fname)
+            row.append(getattr(self,fname)())
+            row.append(getattr(self,f))
 
             cell_text.append(row)
 

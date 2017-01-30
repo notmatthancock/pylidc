@@ -30,14 +30,13 @@ from sqlalchemy import create_engine as _create_engine
 from sqlalchemy.orm import sessionmaker as _sessionmaker
 from ._Configuration import _Configuration
 
-_dbpath      = _pr.resource_filename('pylidc', 'pylidc.sqlite')
-_engine      = _create_engine('sqlite:///'+_dbpath)
-_session     = _sessionmaker(bind=_engine)()
+_dbpath  = _pr.resource_filename('pylidc', 'pylidc.sqlite')
+_engine  = _create_engine('sqlite:///'+_dbpath)
+_session = _sessionmaker(bind=_engine)()
 
 # Public stuff.
 from .Scan import Scan
 from .Annotation import Annotation
-from .Annotation import _all_features_ as feature_names 
 from .Contour import Contour
 
 def query(*args):
