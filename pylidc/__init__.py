@@ -21,17 +21,17 @@ have many contours.
 
 For more information, see the model classes themselves.
 """
-__version__ = 0.1
+from __future__ import print_function
 
 # Hidden stuff.
 import os as _os
+import pkg_resources as _pr
 from sqlalchemy import create_engine as _create_engine
 from sqlalchemy.orm import sessionmaker as _sessionmaker
 from ._Configuration import _Configuration
 
-_module_path = _os.path.dirname(_os.path.abspath(__file__))
-_path        = _os.path.join(_module_path,'db','pylidc.sqlite')
-_engine      = _create_engine('sqlite:///'+_path)
+_dbpath      = _pr.resource_filename('pylidc', 'pylidc.sqlite')
+_engine      = _create_engine('sqlite:///'+_dbpath)
 _session     = _sessionmaker(bind=_engine)()
 
 # Public stuff.
@@ -51,7 +51,7 @@ def query(*args):
         >>> scan = qu.first()
         >>> print len(scan.annotations)
         >>> # => 11
-        >>> qu = pl.query(pl.Annotation).filter((pl.Annotation.malignancy > 3) & (pl.Annotation.spiculation < 3))
+        >>> qu = pl.query(pl.Annotation).filter((pl.Annotation.malignancy > 3), (pl.Annotation.spiculation < 3))
         >>> print qu.count()
         >>> # => 1083
         >>> annotation = qu.first()
@@ -115,4 +115,4 @@ def set_path_to_dicom_files(path):
     else:
         cfg_obj.value = path
     _session.commit()
-    print("Path updated successfully to `%s`"%path)
+    print( "Path updated successfully to `%s`"%path )

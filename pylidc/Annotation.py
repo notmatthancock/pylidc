@@ -50,17 +50,17 @@ class Annotation(Base):
         >>> import pylidc as pl
         >>> # Get the first annotation with spiculation value greater than 3.
         >>> ann = pl.query(pl.Annotation).filter(pl.Annotation.spiculation > 3).first()
-        >>> print ann.spiculation
+        >>> print(ann.spiculation)
         >>> # => 4
         >>> # Each nodule feature has a helper function to print the semantic value.
-        >>> print ann.Spiculation()
+        >>> print(ann.Spiculation())
         >>> # => Medium-High Spiculation
         >>> 
         >>> q = pl.query(pl.Annotation).join(pl.Scan).filter(pl.Scan.resolution_z <= 1, pl.Annotation.malignancy == 5)
-        >>> print q.count()
+        >>> print(q.count())
         >>> # => 58
         >>> ann = q.first()
-        >>> print ann.estimate_diameter(), ann.estimate_volume()
+        >>> print(ann.estimate_diameter(), ann.estimate_volume())
         >>> # => 17.9753270062 1240.43532257
     """
     __tablename__ = 'annotations'
@@ -650,7 +650,7 @@ class Annotation(Base):
 
             # Now turn the numpy matrix into a list of tuples,
             # so we can add it to the corresponding set.
-            points_in_contour = map(tuple, points_in_contour)
+            points_in_contour = list(map(tuple, points_in_contour))
 
             # Update the corresponding set.
             if contour.inclusion:
@@ -690,7 +690,7 @@ class Annotation(Base):
         Example:
             >>> self = pl.query(pl.Annotation).first()
             >>> ct_volume, mask = ann.uniform_cubic_resample(side_length=70)
-            >>> print ct_volume.shape, mask.shape
+            >>> print(ct_volume.shape, mask.shape)
             >>> # => (71, 71, 71), (71, 71, 71)
             >>> # (Nodule is centered at (35,35,35).)
             >>>

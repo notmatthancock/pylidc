@@ -58,12 +58,12 @@ class Scan(Base):
     Example:
         >>> import pylidc as pl
         >>> qu = pl.query(pl.Scan).filter(pl.Scan.slice_thickness <= 1)
-        >>> print qu.count()
+        >>> print(qu.count())
         >>> # => 97
         >>> scan = qu.first()
-        >>> print scan.patient_id, scan.pixel_spacing, scan.slice_thickness
+        >>> print(scan.patient_id, scan.pixel_spacing, scan.slice_thickness)
         >>> # => LIDC-IDRI-0066, 0.63671875, 0.6
-        >>> print len(scan.annotations)
+        >>> print(len(scan.annotations))
         >>> # => 11
     """
     __tablename__           = 'scans'
@@ -100,7 +100,7 @@ class Scan(Base):
             >>> # => Path updated successfully
             >>> # => '/data_storage_path/LIDC-IDRI'
             >>> scan = pl.query(pl.Scan).first()
-            >>> print scan.get_path_to_dicom_files()
+            >>> print(scan.get_path_to_dicom_files())
             >>> # => /data_storage_path/LIDC-IDRI/LIDC-IDRI-0078/1.3.6.1.4.1.14519.5.2.1.6279.6001.339170810277323131167631068432/1.3.6.1.4.1.14519.5.2.1.6279.6001.303494235102183795724852353824
         """
         # Get the path from the database.
@@ -204,7 +204,7 @@ class Scan(Base):
             >>> scan = pl.query(pl.Scan).first()
             >>> images = scan.load_all_dicom_images()
             >>> zs = [float(img.ImagePositionPatient[2]) for img in images]
-            >>> print zs[1] - zs[0], img.SliceThickness, scan.slice_thickness
+            >>> print(zs[1] - zs[0], img.SliceThickness, scan.slice_thickness)
             >>>
             >>> import matplotlib.pyplot as plt
             >>> plt.imshow( images[0].pixel_array, cmap=plt.cm.gray )

@@ -39,7 +39,7 @@ class Contour(Base):
         >>> ann  = scan.annotations[0]
 
         >>> for c in ann.contours:
-        >>>     print c.image_z_position, c.to_matrix().mean(axis=0)
+        >>>     print(c.image_z_position, c.to_matrix().mean(axis=0))
 
     """
     __tablename__    = 'contours'
@@ -67,7 +67,7 @@ class Contour(Base):
         Return the contour-annotation coordinates as a matrix where 
         each row contains an (x,y,z) coordinate.
         """
-        xy = np.array([map(int,c.split(',')) for c in self.coords.split('\n')])
+        xy = np.array([list(map(int,c.split(','))) for c in self.coords.split('\n')])
         z  = np.ones(xy.shape[0])*self.image_z_position
         return np.c_[xy,z]
     
