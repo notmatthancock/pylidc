@@ -3,14 +3,11 @@ from setuptools import setup, find_packages
 
 here = path.abspath(path.dirname(__file__))
 
-with open(path.join(here, 'README.md')) as f:
-    long_desc = f.read()
-
 setup(
     name='pylidc',
     version='0.1.0',
     description='A library for working with the LIDC dataset.',
-    long_description=long_desc,
+    long_description='',
     url='https://github.com/pylidc/pylidc',
     author='Matt Hancock',
     author_email='not.matt.hancock@gmail.com',
@@ -24,6 +21,8 @@ setup(
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.5',
         'Topic :: Database',
         'Topic :: Scientific/Engineering :: Medical Science Apps',
         'Topic :: Scientific/Engineering :: Visualization'
