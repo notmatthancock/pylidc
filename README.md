@@ -19,12 +19,15 @@ The package can be installed via `pip`:
 
 ### Initial setup
 
-The first thing you should do is tell the module where you store your dicom image files for LIDC dataset:
+The first thing you should do is tell the module where you store your dicom image files for LIDC dataset. `pylidc` looks in your home folder for configuration file called, `.pylidcrc`, which you must create. It is formatted like the following:
 
-    >> import pylidc as pl
-    >> pl.set_path_to_dicom_files('/path/to/big_external_drive/datasets/LIDC-IDRI')
+    [dicom]
+    path = /path/to/big_external_drive/datasets/LIDC-IDRI
+    warn = True
 
-The expected folder hierarchy in the specified path is the same as when you download the data from the TCIA download manager, i.e.,`PatientID` > `StudyInstanceUID` > `SeriesInstanceUID` > `*.dcm`. After you set this path initially, it will persist across sessions.
+You can use `pylidc` without creating this configuration file, but any functions that depend on CT image data will not be usable. If you want to use the module without utilizing the DICOM data (for say, querying annotation attributes, etc.), you can set `warn` to `False`, and the module won't bother you about it each time you import the module.
+
+The expected folder hierarchy in the specified path is: `PatientID` > `StudyInstanceUID` > `SeriesInstanceUID` > `*.dcm`. If you downloaded the data from the TCIA site, the folder hierarchy will already be formatted in this way.
 
 ### Basic examples
 

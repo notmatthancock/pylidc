@@ -1,19 +1,50 @@
-import os
-import pkg_resources as _pr
-
 import sqlalchemy as sq
 from sqlalchemy.orm import relationship
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from ._Base import Base
-from ._Configuration import _Configuration
 
+import os, warnings
 import dicom
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, CheckButtons
 from scipy.spatial.distance import squareform
 from scipy.cluster import hierarchy
+
+
+# Load the configuration file and get the dicom file path.
+
+try:
+    import configparser
+except ImportError:
+    import ConfigParser
+    configparser = ConfigParser
+
+cfgpath   = os.path.join(os.path.expanduser('~'), '.pylidcrc')
+dicompath = None
+warndpath = True
+
+if os.path.exists(cfgpath):
+    cp = configparser.SafeConfigParser()
+    cp.read(cfgpath)
+    if cp.has_option('dicom', 'path'):
+        dicompath = cp.get('dicom', 'path')
+    if cp.has_option('dicom', 'warn'):
+        warndpath = cp.get('dicom', 'warn') == 'True'
+
+if dicompath is None:
+    dpath_msg = \
+    '\n\n`.pylidcrc` configuration file does not exist ' +  \
+    'or path is not set. CT images will not be viewable.\n' + \
+    ('The file, `.pylidcrc`, should exist in %s. '%os.path.expanduser('~')) + \
+    'This file should have format:\n\n' + \
+    '[dicom]\n' + \
+    'path = /path/to/dicom/data/LIDC-IDRI\n' + \
+    'warn = True\n\n' + \
+    'Set `warn` to `False` to suppress this message.\n'
+    if warndpath:
+        warnings.warn(dpath_msg)
 
 _off_limits = ['id','study_instance_uid','series_instance_uid',
                'patient_id','slice_thickness','pixel_spacing',
@@ -93,29 +124,16 @@ class Scan(Base):
     def get_path_to_dicom_files(self, checkpath=True):
         """
         Get the path to where the dicom files are stored for this scan, 
-        relative to the root path set in the main module 
-        `pylidc.set_path_to_dicom_files()` function.
+        relative to the root path set in the your configuration file.
 
         Example:
-            >>> import pylidc as pl
-            >>> pl.set_path_to_dicom_files('/data_storage_path/LIDC-IDRI')
-            >>> # => Path updated successfully
-            >>> # => '/data_storage_path/LIDC-IDRI'
             >>> scan = pl.query(pl.Scan).first()
             >>> print(scan.get_path_to_dicom_files())
-            >>> # => /data_storage_path/LIDC-IDRI/LIDC-IDRI-0078/1.3.6.1.4.1.14519.5.2.1.6279.6001.339170810277323131167631068432/1.3.6.1.4.1.14519.5.2.1.6279.6001.303494235102183795724852353824
+            >>> # => /data/storage/path/LIDC-IDRI/LIDC-IDRI-0078/1.3.6.1.4.1.14519.5.2.1.6279.6001.339170810277323131167631068432/1.3.6.1.4.1.14519.5.2.1.6279.6001.303494235102183795724852353824
         """
-        # Get the path from the database.
-        dbpath  = _pr.resource_filename('pylidc', 'pylidc.sqlite')
-        engine  = create_engine('sqlite:///'+dbpath)
-        session = sessionmaker(bind=engine)()
-        scan_root_path = session.query(_Configuration)
-        scan_root_path = scan_root_path.filter(
-                            _Configuration.key == 'path_to_dicom_files'
-                         ).first().value
-        session.close()
-
-        path = os.path.join(scan_root_path,
+        if dicompath is None:
+            raise EnvironmentError(dpath_msg)
+        path = os.path.join(dicompath,
                             self.patient_id,
                             self.study_instance_uid,
                             self.series_instance_uid)
