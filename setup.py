@@ -16,7 +16,7 @@ setup(
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Healthcare Industry',
         'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: MIT License'
+        'License :: OSI Approved :: MIT License',
         'Operating System :: MacOS',
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 2',
@@ -24,7 +24,7 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.5',
         'Topic :: Database',
-        'Topic :: Scientific/Engineering :: Medical Science Apps',
+        'Topic :: Scientific/Engineering :: Medical Science Apps.',
         'Topic :: Scientific/Engineering :: Visualization'
     ],
     keywords='pylidc LIDC lung sql research',
