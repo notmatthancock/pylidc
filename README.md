@@ -29,16 +29,21 @@ You can use `pylidc` without creating this configuration file, but any functions
 
 The expected folder hierarchy in the specified path is: `PatientID` > `StudyInstanceUID` > `SeriesInstanceUID` > `*.dcm`. If you downloaded the data from the TCIA site, the folder hierarchy will already be formatted in this way.
 
+## Citing
+
+If you find `pylidc` helpful to your research, you may cite it as:
+
+Matthew C. Hancock, "Pylidc - An object relational mapping for the LIDC dataset using sqlalchemy," https://github.com/pylidc/pylidc/ (2016)
+
+or something to that effect.
+
 ## Example usage
-
-### Initial setup
-
 
 ### Basic examples
 
 There are three data models: `Scan`, `Annotation`, and `Contour`. The relationships are "one to many" for each model going left to right, i.e., `Scan`'s have many `Annotation`'s, and `Annotation`'s have many `Contour`'s. The main models to query are the `Scan` and `Annotation` models.
 
-The main workhorse for querying is the `pylidc.query` function. This funciton just wraps the the `sqlalchemy.query` function. 
+The main workhorse for querying is the `pylidc.query` function. This function just wraps the `sqlalchemy.query` function. 
 
 #### The `Scan` model
 
