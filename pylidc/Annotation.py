@@ -24,7 +24,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.spatial import Delaunay
 from scipy.ndimage.morphology import distance_transform_edt as dtrans
-from skimage.measure import marching_cubes
+from skimage.measure import marching_cubes, mesh_surface_area
 
 feature_names = \
    ('subtlety',
@@ -251,14 +251,12 @@ class Annotation(Base):
         df[:2] = df[:2]*self.scan.pixel_spacing
         return df
 
-    def centroid(self):
+    def centroid(self, image_coords=True):
         """
         Return the center of mass of the nodule as determined by its 
-        radiologist-drawn contours. Note that the first two components 
-        are the mean in image coordinates, while the last component of 
-        the centroid is the mean of `image_z_position`s.
+        radiologist-drawn contours.
         """
-        return self.contours_to_matrix().mean(axis=0)
+        return self.contours_to_matrix(image_coords).mean(axis=0)
 
     def estimate_diameter(self, return_indices=False):
         """
@@ -284,6 +282,7 @@ class Annotation(Base):
         i,j,k = 0,0,1 # placeholders for max indices
         for c,contour in enumerate(self.contours):
             contour_array = contour.to_matrix()[:,:2]*self.scan.pixel_spacing
+
             # There's some edge cases where the contour consists only of 
             # a single point, which we must ignore.
             if contour_array.shape[0]==1: continue
@@ -303,6 +302,20 @@ class Annotation(Base):
             return greatest_diameter
         else:
             return greatest_diameter, (i,j,k)
+
+    def estimate_surface_area(self):
+        """
+        Estimate the surface area by summing the areas of a trianglation
+        of the nodules surface in 3d. Returned units are mm^2.
+        """
+        mask = self.get_boolean_mask()
+        mask = np.pad(mask, [(1,1), (1,1), (1,1)], 'constant') # Cap the ends.
+        dist = dtrans(mask) - dtrans(~mask)
+
+        rxy  = self.scan.pixel_spacing
+        rz   = self.scan.slice_thickness
+        verts, faces = marching_cubes(dist, 0, spacing=(rxy, rxy, rz))
+        return mesh_surface_area(verts, faces)
 
     def estimate_volume(self):
         """
@@ -375,7 +388,7 @@ class Annotation(Base):
 
         mask = self.get_boolean_mask()
         mask = np.pad(mask, [(1,1), (1,1), (1,1)], 'constant') # Cap the ends.
-        dist = dtrans(mask)
+        dist = dtrans(mask) - dtrans(~mask)
 
         rxy  = self.scan.pixel_spacing
         rz   = self.scan.slice_thickness
@@ -536,14 +549,21 @@ class Annotation(Base):
 
         plt.show()
 
-    def contours_to_matrix(self):
+    def contours_to_matrix(self, image_coords=True):
         """
-        Return all the contours in a 3D numpy array. Note that the first 
-        two columns are in image coordinates while the latter is given as 
-        the `image_z_position`. Thus, the image resolution is not accounted 
-        for in the first two columns.
+        Return all the contours in a 3D numpy array.
+
+        image_coords: bool, default True
+            If True, the first two coordinates of each point are given 
+            in image coordinates (i.e., 2d array index). If False, these 
+            values are scaled by the respective `pixel_spacing` attribute
+            of the Annotation's Scan.
         """
-        return np.vstack([c.to_matrix() for c in self.contours])
+        pts = np.vstack([c.to_matrix() for c in self.contours])
+        if not image_coords:
+            pts[:,:2] *= self.scan.pixel_spacing
+        return pts
+            
 
     def get_boolean_mask(self, return_bbox=False):
         """
@@ -882,7 +902,7 @@ class Annotation(Base):
         # Interpolate the mask volume.
         rgi = RegularGridInterpolator(points=(x, y, z), values=mask,
                                       bounds_error=False, fill_value=False)
-        imask = rgi(IXYZ).reshape(ix.shape) > 0
+        imask = rgi(IXYZ).reshape(ix.shape)
 
         return ictvol, imask
 

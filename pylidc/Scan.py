@@ -7,10 +7,12 @@ from ._Base import Base
 import os, warnings
 import dicom
 import numpy as np
+
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, CheckButtons
-from scipy.spatial.distance import squareform
-from scipy.cluster import hierarchy
+
+from scipy.spatial.distance import cdist
+from scipy.sparse.csgraph import connected_components
 
 
 # Load the configuration file and get the dicom file path.
@@ -146,67 +148,94 @@ class Scan(Base):
             assert os.path.exists(path), errstr
         return path
 
-    def annotations_with_matching_overlap(self, tol=0.5,
-                                          return_overlap_scores=False):
+    def cluster_annotations(self, tol=None, return_distance_matrix=False):
         """
-        TODO: This function should ideally match match nodule annotations 
-        not just on overlap, but on centroid distance, too.
+        Estimate which annotations refer to the same physical 
+        nodule. This method clusters all nodule Annotations for a 
+        Scan by computing a distance measure between the annotations.
+        The distance measure is explained in more detail below.
 
-        Find which annotations refer to the same nodule. This method 
-        clusters nodule annotations for this scan by comparing the 
-        overlap between contour annotations. Specifically, a pairwise 
-        distance between annotation[i] with annotation[j] is formed 
-        by computing:
-        
-        1 - ( size_of_intersection( annotation[i], annotation[j] ) / size_of_union( annotation[i], annotation[j] ) ).
+        tol: float, default None
+            A distance in millimeters. Annotations are grouped when 
+            the minimum distance between their boundary contour points
+            is less than `tol`. The default, None, sets
+            `tol = scan.pixel_spacing`. More detail on this is found below.
 
-        tol: float, default 0.5
-            A value between 0 and 1. The tolerance whereby annotations 
-            are grouped. A high tolerance means annotations with less 
-            overlap are grouped. A low tolerance requires that annotations 
-            must have high overlap to be grouped.
+        return_distance_matrix: bool, default False
+            Optionally return the distance matrix that was used
+            to produce the clusters.
 
-        returns: clusters, a list of nodule groups.
-            `clusters[j]` is a list of nodule annotations grouped by 
-            above. It should be the case that `len(clusters[j])` is 
-            always be between 1 and 4 because a max of 4 radiologists
-            could have annotated a single nodule. `len(clusters)` is 
-            the number of unique nodules present in this scan as 
+        returns: clusters, a list of lists.
+            `clusters[j]` is a list of Annotation objects deemed
+            to refer to the same physical nodule in the Scan.
+
+            `len(clusters)` attempts to estimate (via the specified `tol`)
+            the number of unique physical nodules present in this Scan as 
             determined by this overlap method and the tolerance used.
+
+        ---
+
+        More on the `tol` parameter and distance measure:
+
+        Consider two annotatations, `ann1` and `ann2`. Let `P1` and `P2`
+        be the set of points of the respective boundary contours of the
+        annotations.
+
+        First, the pairwise distance between each of the points in `P1`
+        and `P2` is computed. The distance between the two anotations,
+        `ann1` and `ann2` is defined to be the minimum over these pairwise
+        distances, i.e.,
+
+            d = min( pairwise_distance(P1, P2) )
+
+        Annotations are "grouped" or estimated to refer to the same physical
+        nodule when `d <= tol`. Thus, the default behavior groups Annotations
+        whose "distance" (computed as above) is less than or equal to
+        the respective `slice_thickness` of the Scan.
+
+        The groupings are formed by determining the adjacency matrix for the 
+        Annotations. Annotations are said to be adjacent when 
+        `d[i,j] <= tol`. Groups are determined by finding the connected 
+        components of the graph associated with this adjacency matrix.
         """
-        assert 0 <= tol <= 1., "tolerance should be between 0 and 1"
+        N = len(self.annotations)
+
+        tol = self.slice_thickness if tol is None else tol
+        assert tol >= 0, "`tol` should be >= 0."
 
         # Some special cases.
-        if len(self.annotations)==0:
+        if   N == 0:
             return []
-        elif len(self.annotations)==1:
+        elif N == 1:
             return [[self.annotations[0]]]
 
-        sets = [ann._as_set() for ann in self.annotations]
-        N = len(self.annotations)
-        A = np.zeros((N,N)) # A is the affinity matrix
-        for i in range(N):
-            for j in range(i,N):
-                if i==j:
-                    A[i,j] = 1.
-                else:
-                    A[i,j] = len(sets[i].intersection(sets[j])) 
-                    A[i,j] = A[i,j] / float(len(sets[i].union(sets[j])))
-                    A[j,i] = A[i,j]
-        D = 1-A # convert the affinity matrix to a distance matrix.
+        D = np.zeros((N,N)) # The distance matrix.
 
-        # Cluster using the overlap distance.
-        cluster_labels = hierarchy.fcluster(hierarchy.linkage(D),
-                                            tol, 'distance')
-        clusters = []
-        # indexing for hierachy.fcluster starts at 1.
-        for label in range(1,cluster_labels.max()+1):
-            clusters.append([])
-            for i,l in enumerate(cluster_labels):
-                if l==label:
-                    clusters[-1].append( self.annotations[i] )
-        if return_overlap_scores:
-            return A, clusters
+        for i in range(N):
+            pts_i = self.annotations[i].contours_to_matrix(False)
+            for j in range(i,N):
+                pts_j = self.annotations[j].contours_to_matrix(False)
+                if i==j:
+                    D[i,j] = 0.
+                else:
+                    D[i,j] = cdist(pts_i, pts_j).min()
+                    D[j,i] = D[i,j]
+
+        adjacency = D <= tol
+        n_nods, cids = connected_components(adjacency, directed=False)
+
+        clusters = [[] for _ in range(n_nods)]
+        for i,cid in enumerate(cids):
+            clusters[cid].append(self.annotations[i])
+
+        # Sort the clusters by increasing average z value of centroids.
+        # This is really a convienience thing for the `scan.visualize` method.
+        clusters = sorted(clusters, 
+                          key=lambda cluster: np.mean([ann.centroid()[2]
+                                                       for ann in cluster]))
+
+        if return_distance_matrix:
+            return clusters, D
         else:
             return clusters
 
@@ -251,9 +280,13 @@ class Scan(Base):
                 images.append( dicom.read_file(f) )
         return images
 
-    def visualize(self):
+    def visualize(self, annotation_groups=None):
         """
-        Visualize the scan without any annotations.
+        Visualize the scan.
+
+        annotation_groups: list of lists of Annotation objects
+            This argument should be supplied by the returned object from
+            the `cluster_annotations` method.
         """
         images = self.load_all_dicom_images()
 
@@ -266,38 +299,90 @@ class Scan(Base):
 
         ax_image.set_xlim(-0.5,511.5); ax_image.set_ylim(511.5,-0.5)
         ax_image.axis('off')
+
+        # Add annotation indicators if necessary.
+        if annotation_groups is not None:
+            n_nods = len(annotation_groups)
+            centroids = [np.array([a.centroid() for a in group]).mean(0)
+                                          for group in annotation_groups]
+            radii = [np.mean([a.estimate_diameter()/2 for a in group])
+                                        for group in annotation_groups]
+
+            arrows = []
+            for i in range(n_nods):
+                r = radii[i]
+                c = centroids[i]
+                s = '%d Annotations'%len(annotation_groups[i])
+                a = ax_image.annotate(s,
+                                      xy=(c[0]-r, c[1]-r),
+                                      xytext=(c[0]-50, c[1]-50),
+                                      bbox=dict(fc='w', ec='r'),
+                                      arrowprops=dict(arrowstyle='->',
+                                                      edgecolor='r'))
+                a.set_visible(False) # flipped on/off by `update` function.
+                arrows.append(a)
         
-        ax_scan_info = fig.add_axes([0.1, 0.8, 0.3, 0.1])
+        ax_scan_info = fig.add_axes([0.1, 0.8, 0.3, 0.1]) # l,b,w,h
         ax_scan_info.set_facecolor('w')
-        scan_info_table = ax_scan_info.table(
-            cellText=[
+        scan_info_table = ax_scan_info.table(cellText=[
                 ['Patient ID:', self.patient_id],
                 ['Slice thickness:', '%.3f mm' % self.slice_thickness],
                 ['Pixel spacing:', '%.3f mm' % self.pixel_spacing]
             ],
             loc='center', cellLoc='left'
         )
-        # Remove the table cell borders
+        # Remove the table cell borders.
         for cell in scan_info_table.properties()['child_artists']:
             cell.set_color('w')
-        
+        # Add title, remove ticks from scan info.
         ax_scan_info.set_title('Scan Info')
         ax_scan_info.set_xticks([])
         ax_scan_info.set_yticks([])
 
+        # If annotation_groups are provided, give a info table for them.
+        if annotation_groups is not None and n_nods != 0:
+            # The values here were chosen heuristically.
+            ax_ann_grps = fig.add_axes([0.1, 0.45-n_nods*0.01,
+                                        0.3, 0.2+0.01*n_nods]) 
+            txt = [['Num Nodules:', str(n_nods)]]
+            for i in range(n_nods):
+                c = centroids[i]
+                g = annotation_groups[i]
+                txt.append(['Nodule %d:'%(i+1),
+                            '%d annotations, near z=%.2f'%(len(g),c[2])])
+            ann_grps_table = ax_ann_grps.table(cellText=txt, loc='center',
+                                               cellLoc='left')
+            # Remove cell borders.
+            for cell in ann_grps_table.properties()['child_artists']:
+                cell.set_color('w')
+            # Add title, remove ticks from scan info.
+            ax_ann_grps.set_title('Nodule Info')
+            ax_ann_grps.set_xticks([])
+            ax_ann_grps.set_yticks([])
+
+
         # Add the widgets.
         ax_slice = fig.add_axes([0.1, 0.1, 0.3, 0.05])
         ax_slice.set_facecolor('w')
-        sslice = Slider(ax_slice,
-            'Z: %.3f'%float(images[current_slice].ImagePositionPatient[-1]),
-             0, len(images)-1, valinit=current_slice, valfmt=u'Slice: %d')
+        z = float(images[current_slice].ImagePositionPatient[-1])
+        sslice = Slider(ax_slice, 'Z: %.3f'%z, 0, len(images)-1,
+                         valinit=current_slice, valfmt=u'Slice: %d')
 
         def update(_):
             # Update image itself.
             current_slice = int(sslice.val)
             img.set_data(images[current_slice].pixel_array)
-            sslice.label.set_text(\
-            'Z: %.3f'%float(images[current_slice].ImagePositionPatient[-1]))
+
+            # Update `z` label.
+            z = float(images[current_slice].ImagePositionPatient[-1])
+            sslice.label.set_text('Z: %.3f' % z)
+
+            # Show annotation labels if possible.
+            if annotation_groups is not None:
+                for i in range(len(annotation_groups)):
+                    dist = abs(z-centroids[i][2])
+                    arrows[i].set_visible(dist <= 3*self.slice_thickness)
+
             fig.canvas.draw_idle()
 
         sslice.on_changed(update)
