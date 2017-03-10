@@ -13,6 +13,7 @@ from matplotlib.widgets import Slider, CheckButtons
 
 from scipy.spatial.distance import cdist
 from scipy.sparse.csgraph import connected_components
+from .annotation_distance_metrics import metrics
 
 
 # Load the configuration file and get the dicom file path.
@@ -148,12 +149,20 @@ class Scan(Base):
             assert os.path.exists(path), errstr
         return path
 
-    def cluster_annotations(self, tol=None, return_distance_matrix=False):
+    def cluster_annotations(self, metric='min', tol=None, factor=0.9,
+                            return_distance_matrix=False, verbose=True):
         """
         Estimate which annotations refer to the same physical 
         nodule. This method clusters all nodule Annotations for a 
         Scan by computing a distance measure between the annotations.
-        The distance measure is explained in more detail below.
+
+        metric: string or callable, default 'min'
+            If string, see 
+                `from pylidc.annotation_distance_metrics import metrics`
+                `metrics.keys()`
+            for available metrics. If callable, the provided function,
+            should take two Annotation objects and return a float, i.e.,
+            metric(ann1, ann2).
 
         tol: float, default None
             A distance in millimeters. Annotations are grouped when 
@@ -161,9 +170,20 @@ class Scan(Base):
             is less than `tol`. The default, None, sets
             `tol = scan.pixel_spacing`. More detail on this is found below.
 
+        factor: float, default=0.9
+            If `tol` resulted in any group of nodules with more than
+            4 Annotations, then `tol` is multiplied by `factor` and the
+            grouping is performed again.
+
         return_distance_matrix: bool, default False
             Optionally return the distance matrix that was used
             to produce the clusters.
+
+        verbose: bool, default True
+            If `tol` is reduced below 1e-1, then we conclude that 
+            the nodule groups cannot be automatically reduced to have
+            groups with number of Annotations <= 4, and a warning message
+            is printed. If verbose=False, this message is not printed.
 
         returns: clusters, a list of lists.
             `clusters[j]` is a list of Annotation objects deemed
@@ -175,29 +195,29 @@ class Scan(Base):
 
         ---
 
-        More on the `tol` parameter and distance measure:
+        More on the `tol` parameter and distance measures:
 
-        Consider two annotatations, `ann1` and `ann2`. Let `P1` and `P2`
-        be the set of points of the respective boundary contours of the
-        annotations.
-
-        First, the pairwise distance between each of the points in `P1`
-        and `P2` is computed. The distance between the two anotations,
-        `ann1` and `ann2` is defined to be the minimum over these pairwise
-        distances, i.e.,
-
-            d = min( pairwise_distance(P1, P2) )
+        The "distance" matrix, `d[i,j]`, between all Annotations for 
+        the Scan is first computed using the provided `metric` parameter.
 
         Annotations are "grouped" or estimated to refer to the same physical
-        nodule when `d <= tol`. Thus, the default behavior groups Annotations
-        whose "distance" (computed as above) is less than or equal to
-        the respective `slice_thickness` of the Scan.
-
-        The groupings are formed by determining the adjacency matrix for the 
-        Annotations. Annotations are said to be adjacent when 
-        `d[i,j] <= tol`. Groups are determined by finding the connected 
-        components of the graph associated with this adjacency matrix.
+        nodule when `d <= tol`. The groupings are formed by determining 
+        the adjacency matrix for the Annotations. Annotations are said to be
+        adjacent when `d[i,j] <= tol`. Groups are determined by finding 
+        the connected components of the graph associated with 
+        this adjacency matrix.
         """
+        assert 0 < factor < 1, "`factor` must be in the interval (0,1)."
+
+        if isinstance(metric, str) and metric not in metrics.keys():
+            msg = 'Invalid `metric` string. See \n\n'
+            msg += '`from pylidc.annotation_distance_metrics import metrics`\n'
+            msg += '`print metrics.keys()`\n\n'
+            msg += 'for valid `metric` strings.'
+            raise ValueError(msg)
+        elif not callable(metric):
+            metric = metrics[metric]
+
         N = len(self.annotations)
 
         tol = self.slice_thickness if tol is None else tol
@@ -212,19 +232,30 @@ class Scan(Base):
         D = np.zeros((N,N)) # The distance matrix.
 
         for i in range(N):
-            pts_i = self.annotations[i].contours_to_matrix(False)
-            for j in range(i,N):
-                pts_j = self.annotations[j].contours_to_matrix(False)
-                if i==j:
-                    D[i,j] = 0.
-                else:
-                    D[i,j] = cdist(pts_i, pts_j).min()
-                    D[j,i] = D[i,j]
+            for j in range(i+1,N):
+                D[i,j] = D[j,i] = metric(self.annotations[i],
+                                         self.annotations[j])
 
         adjacency = D <= tol
-        n_nods, cids = connected_components(adjacency, directed=False)
+        nnods, cids = connected_components(adjacency, directed=False)
+        ucids = np.unique(cids)
+        counts = [(cids==cid).sum() for cid in ucids]
 
-        clusters = [[] for _ in range(n_nods)]
+        # Group again with smaller tolerance until there are 
+        # no nodules with more than 4 annotations.
+        while any([c > 4 for c in counts]):
+            tol *= factor
+            if tol < 1e-1:
+                msg = "Failed to reduce all groups to <= 4 Annotations.\n"
+                msg+= "Some nodules may be close and must be grouped manually."
+                if verbose: print(msg)
+                break
+            adjacency = D <= tol
+            nnods, cids = connected_components(adjacency, directed=False)
+            ucids = np.unique(cids)
+            counts = [(cids==cid).sum() for cid in ucids]
+
+        clusters = [[] for _ in range(nnods)]
         for i,cid in enumerate(cids):
             clusters[cid].append(self.annotations[i])
 
@@ -302,14 +333,14 @@ class Scan(Base):
 
         # Add annotation indicators if necessary.
         if annotation_groups is not None:
-            n_nods = len(annotation_groups)
+            nnods = len(annotation_groups)
             centroids = [np.array([a.centroid() for a in group]).mean(0)
                                           for group in annotation_groups]
             radii = [np.mean([a.estimate_diameter()/2 for a in group])
                                         for group in annotation_groups]
 
             arrows = []
-            for i in range(n_nods):
+            for i in range(nnods):
                 r = radii[i]
                 c = centroids[i]
                 s = '%d Annotations'%len(annotation_groups[i])
@@ -340,12 +371,12 @@ class Scan(Base):
         ax_scan_info.set_yticks([])
 
         # If annotation_groups are provided, give a info table for them.
-        if annotation_groups is not None and n_nods != 0:
+        if annotation_groups is not None and nnods != 0:
             # The values here were chosen heuristically.
-            ax_ann_grps = fig.add_axes([0.1, 0.45-n_nods*0.01,
-                                        0.3, 0.2+0.01*n_nods]) 
-            txt = [['Num Nodules:', str(n_nods)]]
-            for i in range(n_nods):
+            ax_ann_grps = fig.add_axes([0.1, 0.45-nnods*0.01,
+                                        0.3, 0.2+0.01*nnods]) 
+            txt = [['Num Nodules:', str(nnods)]]
+            for i in range(nnods):
                 c = centroids[i]
                 g = annotation_groups[i]
                 txt.append(['Nodule %d:'%(i+1),
