@@ -807,7 +807,7 @@ class Annotation(Base):
         yhat, step = np.linspace(ymin-d, ymax+d, side_length+1, retstep=True)
         assert abs(step-1) < 1e-5, "New y spacing != 1."
 
-        # Do the same for y.
+        # Do the same for z.
         d = 0.5*(side_length-(zmax - zmin))
         zhat, step = np.linspace(zmin-d, zmax+d, side_length+1, retstep=True)
         assert abs(step-1) < 1e-5, "New z pixel spacing != 1."
