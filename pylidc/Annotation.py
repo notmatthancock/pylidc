@@ -817,17 +817,20 @@ class Annotation(Base):
 
         # Compute new interpolation grid points in x.
         d = 0.5*(side_length-(xmax - xmin))
-        xhat, step = np.linspace(xmin-d, xmax+d, int(side_length)+1, retstep=True)
+        xhat, step = np.linspace(xmin-d, xmax+d,
+                                 int(side_length)+1, retstep=True)
         assert abs(step-1) < 1e-5, "New x spacing != 1."
 
         # Do the same for y.
-        d = 0.5*(int(side_length)-(ymax - ymin))
-        yhat, step = np.linspace(ymin-d, ymax+d, int(side_length)+1, retstep=True)
+        d = 0.5*(side_length-(ymax - ymin))
+        yhat, step = np.linspace(ymin-d, ymax+d,
+                                 int(side_length)+1, retstep=True)
         assert abs(step-1) < 1e-5, "New y spacing != 1."
 
         # Do the same for z.
-        d = 0.5*(int(side_length)-(zmax - zmin))
-        zhat, step = np.linspace(zmin-d, zmax+d, int(side_length)+1, retstep=True)
+        d = 0.5*(side_length-(zmax - zmin))
+        zhat, step = np.linspace(zmin-d, zmax+d,
+                                 int(side_length)+1, retstep=True)
         assert abs(step-1) < 1e-5, "New z pixel spacing != 1."
 
         # } End interpolation grid creation.
