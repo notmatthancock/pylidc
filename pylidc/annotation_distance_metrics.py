@@ -87,3 +87,19 @@ def hausdorff(ann1, ann2):
     return max(C.min(0).max(), C.min(1).max())
 
 metrics['hausdorff'] = hausdorff
+
+def jaccard(ann1, ann2):
+    """
+    The Jaccard distance [1] between the boolean volumes as point sets. The
+    Jaccard distance is one minus the "intersection over union" score and is a
+    value between 0 and 1. Distance 0 indicates perfect overlap
+    (intersection/union = 1), while distance 1 indicates no overlap.
+
+    [1]: https://en.wikipedia.org/wiki/Jaccard_index
+    """
+    A1 = ann1._as_set()
+    A2 = ann2._as_set()
+    I = len(A1.intersection(A2))
+    return 1.0 - I*1.0 / len(A1.union(A2))
+
+metrics['jaccard'] = jaccard

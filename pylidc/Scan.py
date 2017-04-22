@@ -302,8 +302,13 @@ class Scan(Base):
         if all([(len(fname)==len(fnames[0])) for fname in fnames]):
             L = len(fnames[0]) - len('.dcm') # Just being explicit here.
             str_format = ("%0"+str(L)+"d.dcm")
+            
+            # If the zero file doesn't exist, start at 1.
+            offset = not os.path.exists(str_format % 0)
+
             for i,fname in enumerate(sorted_fnames):
-                sorted_fnames[i] = str_format % int(fname.split('.')[0])
+                ii = int(fname.split('.')[0]) + offset
+                sorted_fnames[i] = str_format % ii
 
         images = []
         for dicom_file_name in sorted_fnames:

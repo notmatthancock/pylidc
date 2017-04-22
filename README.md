@@ -1,6 +1,8 @@
 # pylidc
 
-`pylidc` is a python library intended to enhance workflow associated with the LIDC dataset, including utilities for both querying by attributes (e.g., collecting all annotations where malignancy is labeled as greater than 3 and spiculation is labeled a value equal to 1), and for common functional routines that act on the associated data (e.g., estimating the diameter or volume of a nodule from one of its annotations). Routines for visualizing the annotations, both atop the CT data and as a surface in 3D, are implemented. These functionalities are implemented via an object relational mapping (ORM), using `sqlalchemy` to an sqlite database containing the annotation information from the XML files provided by the LIDC dataset.
+`pylidc` is a python library intended to enhance workflow associated with the [LIDC dataset](https://wiki.cancerimagingarchive.net/display/Public/LIDC-IDRI), including utilities for both querying by attributes (e.g., collecting all annotations where malignancy is labeled as greater than 3 and spiculation is labeled a value equal to 1), and for common functional routines that act on the associated data (e.g., estimating the diameter or volume of a nodule from one of its annotations). 
+
+Routines for visualizing the annotations, both atop the CT data and as a surface in 3D, are implemented. These functionalities are implemented via an object relational mapping (ORM), using `sqlalchemy` to an sqlite database containing the annotation information from the XML files provided by the LIDC dataset.
 
 ![](https://raw.githubusercontent.com/pylidc/pylidc/master/img/viz-in-scan-example.png)
 ![](https://raw.githubusercontent.com/pylidc/pylidc/master/img/viz-in-3d-example.png)
@@ -152,13 +154,24 @@ Another common objective is to query for an `Annotation` object which is constra
 
 The `Annotation` member function, `uniform_cubic_resample`, takes a cubic region of interest with the centroid at the center of the volume. The corresponding CT value volume is resampled to have voxel spacing of 1 millimeter and a side length as given by the functions `side_length` parameter. Along with the uniformly resampled, cubic CT image volume, a corresponding boolean-valued volume is also returned that is 1 where the nodule exists in the resampled CT volume and 0 otherwise.
     
+    import pylidc as pl
+    import matplotlib.pyplot as plt
+    from skimage.measure import find_contours
+
     ann = pl.query(pl.Annotation).first()
     vol, seg = ann.uniform_cubic_resample(side_length = 100)
     print(vol.shape, seg.shape)
     # => (101, 101, 101) (101, 101, 101)
 
-    import matplotlib.pyplot as plt
-    plt.imshow( vol[:,:,50] * (seg[:,:,50]*0.8 + 0.2), cmap=plt.cm.gray)
+    # View middle slice of interpolated volume (pixel spacing now = 1mm)
+    plt.imshow(vol[:,:,50], cmap=plt.cm.gray)
+
+    # View middle slice of interpolated segmentation volume as contours
+    # atop the interpolated image.
+    contours = find_contours(seg[:,:,50], 0.5)
+    for contour in contours:
+        plt.plot(contour[:,1], contour[:,0], '-r')
+
     plt.show()
 
 ![](https://raw.githubusercontent.com/pylidc/pylidc/master/img/resample-example.png)

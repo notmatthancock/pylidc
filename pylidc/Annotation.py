@@ -687,7 +687,9 @@ class Annotation(Base):
         # Return the included points minus the excluded points.
         return included.difference( excluded )
 
-    def uniform_cubic_resample(self, side_length=None, verbose=True):
+    def uniform_cubic_resample(self, side_length=None, resample_vol=True,
+                               irp_pts=None, return_irp_pts=False,
+                               verbose=True):
         """
         Get the CT value volume and respective boolean mask volume. The 
         volumes are interpolated and resampled to have uniform spacing of 1mm
@@ -707,16 +709,32 @@ class Annotation(Base):
             out-of-bounds image index, then the image is padded with 
             the minimum CT image value.
 
+        resample_vol: boolean, default True
+            If False, only the segmentation volume is resampled.
+
+        irp_pts: 3-tuple from meshgrid
+            If provided, the volume(s) will be resampled over these interpolation
+            points, rather than the automatically calculated points. This allows
+            for sampling segmentation volumes over a common coordinate-system.
+
+        return_irp_pts: boolean, default False
+            If True, the interpolation points (ix,iy,iz) at which the volume(s)
+            were resampled are returned. These can potentially be provided as
+            an argument to `irp_pts` for separate selfotations that refer to the
+            same nodule, allowing the segmentation volumes to be resampled in a
+            common coordinate-system.
+
         verbose: boolean, default True
             Turn the loading statement on / off.
 
-        returns: ct_volume, mask
+        returns: [ct_volume,] mask [, irp_pts]
             `ct_volume` and `mask` are the resampled CT and boolean 
-            volumes, respectively.
+            volumes, respectively. `ct_volume` and `irp_points` are optionally
+            returned, depending on which flags are set (see above).
 
         Example:
             >>> self = pl.query(pl.Annotation).first()
-            >>> ct_volume, mask = ann.uniform_cubic_resample(side_length=70)
+            >>> ct_volume, mask = self.uniform_cubic_resample(side_length=70)
             >>> print(ct_volume.shape, mask.shape)
             >>> # => (71, 71, 71), (71, 71, 71)
             >>> # (Nodule is centered at (35,35,35).)
@@ -799,17 +817,17 @@ class Annotation(Base):
 
         # Compute new interpolation grid points in x.
         d = 0.5*(side_length-(xmax - xmin))
-        xhat, step = np.linspace(xmin-d, xmax+d, side_length+1, retstep=True)
+        xhat, step = np.linspace(xmin-d, xmax+d, int(side_length)+1, retstep=True)
         assert abs(step-1) < 1e-5, "New x spacing != 1."
 
         # Do the same for y.
-        d = 0.5*(side_length-(ymax - ymin))
-        yhat, step = np.linspace(ymin-d, ymax+d, side_length+1, retstep=True)
+        d = 0.5*(int(side_length)-(ymax - ymin))
+        yhat, step = np.linspace(ymin-d, ymax+d, int(side_length)+1, retstep=True)
         assert abs(step-1) < 1e-5, "New y spacing != 1."
 
-        # Do the same for y.
-        d = 0.5*(side_length-(zmax - zmin))
-        zhat, step = np.linspace(zmin-d, zmax+d, side_length+1, retstep=True)
+        # Do the same for z.
+        d = 0.5*(int(side_length)-(zmax - zmin))
+        zhat, step = np.linspace(zmin-d, zmax+d, int(side_length)+1, retstep=True)
         assert abs(step-1) < 1e-5, "New z pixel spacing != 1."
 
         # } End interpolation grid creation.
@@ -874,9 +892,10 @@ class Annotation(Base):
 
 
         # Create the non-interpolated CT volume.
-        ctvol = np.zeros(x.shape+y.shape+z.shape, dtype=np.float64)
-        for k in range(z.shape[0]):
-            ctvol[:,:,k] = images[k+az].pixel_array[ax:bx, ay:by]
+        if resample_vol:
+            ctvol = np.zeros(x.shape+y.shape+z.shape, dtype=np.float64)
+            for k in range(z.shape[0]):
+                ctvol[:,:,k] = images[k+az].pixel_array[ax:bx, ay:by]
 
         # We currently only have the boolean mask volume on the domain
         # of the bounding box. Thus, we must "place it" in the appropriately
@@ -889,22 +908,36 @@ class Annotation(Base):
                       mode='constant', constant_values=False)
 
         # Obtain minimum image value to use as const for interpolation.
-        fillval = min([img.pixel_array.min() for img in images])
+        if resample_vol:
+            fillval = min([img.pixel_array.min() for img in images])
 
-        ix,iy,iz = np.meshgrid(xhat, yhat, zhat, indexing='ij')
+        if irp_pts is None:
+            ix,iy,iz = np.meshgrid(xhat, yhat, zhat, indexing='ij')
+        else:
+            ix,iy,iz = irp_pts
         IXYZ = np.c_[ix.flatten(), iy.flatten(), iz.flatten()]
 
         # Interpolate the nodule CT volume.
-        rgi = RegularGridInterpolator(points=(x, y, z), values=ctvol,
-                                      bounds_error=False, fill_value=fillval)
-        ictvol = rgi(IXYZ).reshape(ix.shape)
+        if resample_vol:
+            rgi = RegularGridInterpolator(points=(x, y, z), values=ctvol,
+                                          bounds_error=False, fill_value=fillval)
+            ictvol = rgi(IXYZ).reshape(ix.shape)
 
         # Interpolate the mask volume.
         rgi = RegularGridInterpolator(points=(x, y, z), values=mask,
                                       bounds_error=False, fill_value=False)
-        imask = rgi(IXYZ).reshape(ix.shape)
+        imask = rgi(IXYZ).reshape(ix.shape) > 0
 
-        return ictvol, imask
+        if resample_vol:
+            if return_irp_pts:
+                return ictvol, imask, (ix,iy,iz)
+            else:
+                return ictvol, imask
+        else:
+            if return_irp_pts:
+                return imask, (ix,iy,iz)
+            else:
+                return imask
 
 
 # Add the relationship to the Scan model.
