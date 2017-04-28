@@ -312,8 +312,11 @@ class Scan(Base):
 
         images = []
         for dicom_file_name in sorted_fnames:
-            with open(os.path.join(path, dicom_file_name), 'rb') as f:
-                images.append( dicom.read_file(f) )
+            try
+                with open(os.path.join(path, dicom_file_name), 'rb') as f:
+                    images.append( dicom.read_file(f) )
+            except IOErro as e:
+                print dicom_file_name, "does not exist. it's skipped."
         return images
 
     def visualize(self, annotation_groups=None):
