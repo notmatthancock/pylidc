@@ -35,11 +35,11 @@ The expected folder hierarchy in the specified path is: `PatientID` > `StudyInst
 
 If you find `pylidc` helpful to your research, you could cite it as:
 
-Matthew C. Hancock, "Pylidc - An object relational mapping for the LIDC dataset using sqlalchemy," [https://github.com/pylidc/pylidc/](https://github.com/pylidc/pylidc/) (2016)
+> Matthew C. Hancock. **Pylidc - An object relational mapping for the LIDC dataset using sqlalchemy**. [https://github.com/pylidc/pylidc/](https://github.com/pylidc/pylidc/) (2016)
 
 If you want to cite something more formal, `pylidc` was developed for, and first mentioned in, the following publication:
 
-Matthew C. Hancock, Jerry F. Magnan. Lung nodule malignancy classification using only radiologist quantified image features as inputs to statistical learning algorithms: probing the Lung Image Database Consortium dataset with two statistical learning methods. SPIE Journal of Medical Imaging. Dec. 2016. [http://dx.doi.org/10.1117/1.JMI.3.4.044504](http://dx.doi.org/10.1117/1.JMI.3.4.044504)
+> Matthew C. Hancock, Jerry F. Magnan. **Lung nodule malignancy classification using only radiologist quantified image features as inputs to statistical learning algorithms: probing the Lung Image Database Consortium dataset with two statistical learning methods**. *SPIE Journal of Medical Imaging*. Dec. 2016. [http://dx.doi.org/10.1117/1.JMI.3.4.044504](http://dx.doi.org/10.1117/1.JMI.3.4.044504)
 
 ## Example usage
 
