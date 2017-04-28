@@ -175,3 +175,48 @@ The `Annotation` member function, `uniform_cubic_resample`, takes a cubic region
     plt.show()
 
 ![](https://raw.githubusercontent.com/pylidc/pylidc/master/img/resample-example.png)
+
+### Clustering annotations to identify those which refer to the same physical nodule.
+
+The LIDC dataset doesn't assign unique global identifiers to the physical nodules. For a given physical nodule, there may exist up to 4 annotations that refer to it. The annotations are anonymous, so even if it is known that 4 annotations refer to the same nodule, it is impossible to tell which annotator provided each annotation across multiple nodules consistently.
+
+However, we can estimate when annotations refer to the same physical nodule in a scan by examining the properties of the annotations and clustering them based on the properties. `pylidc` provides [a number of distance metrics between annotations](https://github.com/pylidc/pylidc/pylidc/annotation_distance_metrics.py) based on the annotation contour coordinates. The `Scan` model provides a [`cluster_annotations`](https://github.com/pylidc/pylidc/pylidc/Scan.py) function which then clusters annotations by determining the connected components of the adjacency graph associated with a chosen distance-between-annotations metric and a chosen distance tolerance.
+
+Here's an example:
+
+```
+import pylidc as pl
+
+scan = pl.query(pl.Scan).first()
+nods = scan.cluster_annotations()
+
+print "Scan is estimated to have", len(nods), "nodules."
+
+for i,nod in enumerate(nods):
+    print "Nodule", i+1, "has", len(nod), "annotations."
+        for j,ann in enumerate(nod):
+            print "-- Annotation", j+1, "centroid:", ann.centroid()
+```
+
+Output:
+```
+Scan is estimated to have 4 nodules.
+Nodule 1 has 4 annotations.
+-- Annotation 1 centroid: [  331.90680101   312.30982368  1480.44962217]
+-- Annotation 2 centroid: [  328.60546875   309.91796875  1479.73046875]
+-- Annotation 3 centroid: [  327.91666667   309.88293651  1479.01785714]
+-- Annotation 4 centroid: [  332.55660377   313.88050314  1479.94339623]
+Nodule 2 has 4 annotations.
+-- Annotation 1 centroid: [  360.81122449   169.19642857  1542.10459184]
+-- Annotation 2 centroid: [  360.82233503   169.21319797  1542.14720812]
+-- Annotation 3 centroid: [  361.05243446   168.86142322  1542.34269663]
+-- Annotation 4 centroid: [  361.25501433   171.          1542.80659026]
+Nodule 3 has 1 annotations.
+-- Annotation 1 centroid: [  336.41666667   348.83333333  1545.75      ]
+Nodule 4 has 4 annotations.
+-- Annotation 1 centroid: [  340.54020979   245.07692308  1606.14160839]
+-- Annotation 2 centroid: [  341.29061103   244.65275708  1605.90834575]
+-- Annotation 3 centroid: [  341.75417299   244.03490137  1606.95827011]
+-- Annotation 4 centroid: [  341.53110048   245.58532695  1606.5       ]
+```
+You can supply annotation clusters (variable, `nods`, above) to the `scan.visualize` function, and arrows will annotate where the nodules are present in the scan.
