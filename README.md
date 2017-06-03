@@ -1,3 +1,4 @@
+
 # pylidc
 
 `pylidc` is a python library intended to enhance workflow associated with the [LIDC dataset](https://wiki.cancerimagingarchive.net/display/Public/LIDC-IDRI), including utilities for both querying by attributes (e.g., collecting all annotations where malignancy is labeled as greater than 3 and spiculation is labeled a value equal to 1), and for common functional routines that act on the associated data (e.g., estimating the diameter or volume of a nodule from one of its annotations). 
@@ -7,7 +8,24 @@ Routines for visualizing the annotations, both atop the CT data and as a surface
 ![](https://raw.githubusercontent.com/pylidc/pylidc/master/img/viz-in-scan-example.png)
 ![](https://raw.githubusercontent.com/pylidc/pylidc/master/img/viz-in-3d-example.png)
 
-See below for installation details and for examples.
+Table of Contents
+=================
+
+   * [pylidc](#pylidc)
+   * [Table of Contents](#table-of-contents)
+      * [Installation and setup](#installation-and-setup)
+         * [Dicom file directory configuration](#dicom-file-directory-configuration)
+      * [Citing](#citing)
+      * [Example usage](#example-usage)
+         * [Basic examples](#basic-examples)
+            * [The Scan model](#the-scan-model)
+            * [The Annotation model](#the-annotation-model)
+         * [Advanced queries](#advanced-queries)
+            * [Get a random result](#get-a-random-result)
+            * [Query multiple model parameters with a join](#query-multiple-model-parameters-with-a-join)
+         * [Resampling the volumes](#resampling-the-volumes)
+         * [Clustering annotations.](#clustering-annotations-to-identify-those-which-refer-to-the-same-physical-nodule)
+
 
 ## Installation and setup
 
