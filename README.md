@@ -11,20 +11,18 @@ Routines for visualizing the annotations, both atop the CT data and as a surface
 Table of Contents
 =================
 
-   * [pylidc](#pylidc)
-   * [Table of Contents](#table-of-contents)
-      * [Installation and setup](#installation-and-setup)
-         * [Dicom file directory configuration](#dicom-file-directory-configuration)
-      * [Citing](#citing)
-      * [Example usage](#example-usage)
-         * [Basic examples](#basic-examples)
-            * [The Scan model](#the-scan-model)
-            * [The Annotation model](#the-annotation-model)
-         * [Advanced queries](#advanced-queries)
-            * [Get a random result](#get-a-random-result)
-            * [Query multiple model parameters with a join](#query-multiple-model-parameters-with-a-join)
-         * [Resampling the volumes](#resampling-the-volumes)
-         * [Clustering annotations.](#clustering-annotations-to-identify-those-which-refer-to-the-same-physical-nodule)
+  * [Installation and setup](#installation-and-setup)
+     * [Dicom file directory configuration](#dicom-file-directory-configuration)
+  * [Citing](#citing)
+  * [Example usage](#example-usage)
+     * [Basic examples](#basic-examples)
+        * [The Scan model](#the-scan-model)
+        * [The Annotation model](#the-annotation-model)
+     * [Advanced queries](#advanced-queries)
+        * [Get a random result](#get-a-random-result)
+        * [Query multiple model parameters with a join](#query-multiple-model-parameters-with-a-join)
+     * [Resampling the volumes](#resampling-the-volumes)
+     * [Clustering annotations](#clustering-annotations-to-identify-those-which-refer-to-the-same-physical-nodule)
 
 
 ## Installation and setup
