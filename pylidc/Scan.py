@@ -24,7 +24,9 @@ except ImportError:
     import ConfigParser
     configparser = ConfigParser
 
-cfgpath   = os.path.join(os.path.expanduser('~'), '.pylidcrc')
+
+cfgname   = 'pylidc.conf' if os.name == 'nt' else '.pylidcrc'
+cfgpath   = os.path.join(os.path.expanduser('~'), cfgname)
 dicompath = None
 warndpath = True
 

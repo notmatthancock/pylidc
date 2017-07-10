@@ -27,7 +27,7 @@ Table of Contents
 
 ## Installation and setup
 
-`pylidc` has been tested on Linux on both python 2.7 and 3.5. It has been tested on MAC OSX with python 2.7. It has not been tested on Windows OS (although there is nothing in the library that is specific to any particular OS).
+`pylidc` has been used on Linux, Mac, and Windows, and on Python 2 and 3.
 
 The package can be installed via `pip`:
 
@@ -37,7 +37,9 @@ The package can be installed via `pip`:
 
 This part is optional, but you will not be able to use utilities which require access to the DICOM data.
 
-In order for the module to know where you store your DICOM image files for LIDC dataset. `pylidc` looks in your home folder for configuration file called, `.pylidcrc`, which you must create. On Linux and MAC OS, the file should be located at `/home/[user]/.pylidcrc`. On Windows, it should be located in the analogous location (but again, this package has not been tested on Windows, as of yet). The `.pylidcrc` file should be formatted as follows:
+In order for the module to know where you store your DICOM image files for LIDC dataset. `pylidc` looks in your home folder for configuration file called, `.pylidcrc` on Mac and Linux, or `pylidc.conf` on Windows. You must create this file. On Linux and Mac, the file should be located at `/home/[user]/.pylidcrc`. On Windows, the file should be located at `C:\Users\[User]\pylidc.conf`.
+
+The configuration file should be formatted as follows:
 
     [dicom]
     path = /path/to/big_external_drive/datasets/LIDC-IDRI
