@@ -35,9 +35,9 @@ The package can be installed via `pip`:
 
 ### Dicom file directory configuration
 
-This part is optional, but you will not be able to use utilities which require access to the DICOM data.
+While `pylidc` has many functions for analyzing and querying only annotation data (which do not require DICOM image data access), `pylidc` also has many functions that do require access to the DICOM files associated with the LIDC dataset. `pylidc` looks for a special configuration file that tells it where DICOM data is located on your system. You can use `pylidc` without creating this configuration file, but of course, any functions that depend on CT image data will not be usable.
 
-In order for the module to know where you store your DICOM image files for LIDC dataset. `pylidc` looks in your home folder for configuration file called, `.pylidcrc` on Mac and Linux, or `pylidc.conf` on Windows. You must create this file. On Linux and Mac, the file should be located at `/home/[user]/.pylidcrc`. On Windows, the file should be located at `C:\Users\[User]\pylidc.conf`.
+`pylidc` looks in your home folder for a configuration file called, `.pylidcrc` on Mac and Linux, or `pylidc.conf` on Windows. You must create this file. On Linux and Mac, the file should be located at `/home/[user]/.pylidcrc`. On Windows, the file should be located at `C:\Users\[User]\pylidc.conf`.
 
 The configuration file should be formatted as follows:
 
@@ -45,9 +45,14 @@ The configuration file should be formatted as follows:
     path = /path/to/big_external_drive/datasets/LIDC-IDRI
     warn = True
 
-You can use `pylidc` without creating this configuration file, but any functions that depend on CT image data will not be usable. If you want to use the module without utilizing the DICOM data (for say, querying annotation attributes, etc.), you can set `warn` to `False`, and the module won't bother you about it each time you import the module.
+If you want to use `pylidc` without utilizing the DICOM data (for say, querying annotation attributes, etc.), you can remove `path` and set `warn` to `False`,  i.e.,
 
-The expected folder hierarchy in the specified path is: `PatientID` > `StudyInstanceUID` > `SeriesInstanceUID` > `*.dcm`. If you downloaded the data from the TCIA site, the folder hierarchy will already be formatted in this way.
+    [dicom]
+    warn = False
+
+and the module won't bother you about it each time you import the module.
+
+The expected folder hierarchy in the specified `path` is: `PatientID` > `StudyInstanceUID` > `SeriesInstanceUID` > `*.dcm`. If you downloaded the data from the TCIA site, the folder hierarchy will (probably!) already be formatted in this way.
 
 ## Citing
 
