@@ -291,31 +291,45 @@ class Scan(Base):
             >>> plt.imshow( images[0].pixel_array, cmap=plt.cm.gray )
             >>> plt.show()
         """
-        path = self.get_path_to_dicom_files()
-
         if verbose: print("Loading dicom files ... This may take a moment.")
 
-        fnames = [fname for fname in os.listdir(path)]
-        fnames = [fname for fname in fnames if fname.endswith('.dcm')]
-        sorted_fnames = self.sorted_dicom_file_names.split(',')
-
-        # Some sets have the dicom files padded with
-        # zeros in front, some don't apparently.
-        if all([(len(fname)==len(fnames[0])) for fname in fnames]):
-            L = len(fnames[0]) - len('.dcm') # Just being explicit here.
-            str_format = ("%0"+str(L)+"d.dcm")
-
-            # If the zero file doesn't exist, start at 1.
-            offset = not os.path.exists(os.path.join(path, str_format % 0))
-
-            for i,fname in enumerate(sorted_fnames):
-                ii = int(fname.split('.')[0]) + offset
-                sorted_fnames[i] = str_format % ii
-
+        path = self.get_path_to_dicom_files()
+        fnames = [fname for fname in os.listdir(path)
+                            if fname.endswith('.dcm')]
         images = []
-        for dicom_file_name in sorted_fnames:
-            with open(os.path.join(path, dicom_file_name), 'rb') as f:
-                images.append( dicom.read_file(f) )
+        for fname in fnames:
+            with open(os.path.join(path, fname), 'rb') as f:
+                image = dicom.read_file(f)
+                images.append(image)
+
+        # ##############################################
+        # Clean multiple z scans.
+        #
+        # Some scans contain multiple slices with the same `z` coordinate 
+        # from the `ImagePositionPatient` tag.
+        # The arbitrary choice to take the slice with lesser 
+        # `InstanceNumber` tag is made.
+        # This takes some work to accomplish...
+        zs    = [float(img.ImagePositionPatient[-1]) for img in images]
+        inums = [float(img.InstanceNumber) for img in images]
+        inds = range(len(zs))
+        while np.unique(zs).shape[0] != len(inds):
+            for i in inds:
+                for j in inds:
+                    if i!=j and zs[i] == zs[j]:
+                        k = i if inums[i] > inums[j] else j
+                        inds.pop(inds.index(k))
+
+        # Prune the duplicates found in the loops above.
+        zs     = [zs[i]     for i in range(len(zs))     if i in inds]
+        images = [images[i] for i in range(len(images)) if i in inds]
+
+        # Sort everything by (now unique) ImagePositionPatient z coordinate.
+        sort_inds = np.argsort(zs)
+        images    = [images[s] for s in sort_inds]
+        # End multiple z clean.
+        # ##############################################
+
         return images
 
     def visualize(self, annotation_groups=None):

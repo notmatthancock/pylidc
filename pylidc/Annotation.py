@@ -314,7 +314,7 @@ class Annotation(Base):
 
         rxy  = self.scan.pixel_spacing
         rz   = self.scan.slice_thickness
-        verts, faces = marching_cubes(dist, 0, spacing=(rxy, rxy, rz))
+        verts, faces, _, _ = marching_cubes(dist, 0, spacing=(rxy, rxy, rz))
         return mesh_surface_area(verts, faces)
 
     def estimate_volume(self):
@@ -392,7 +392,7 @@ class Annotation(Base):
 
         rxy  = self.scan.pixel_spacing
         rz   = self.scan.slice_thickness
-        verts, faces = marching_cubes(dist, 0, spacing=(rxy, rxy, rz))
+        verts, faces, _, _= marching_cubes(dist, 0, spacing=(rxy, rxy, rz))
         maxes = np.ceil(verts.max(axis=0))
 
         fig = plt.figure()

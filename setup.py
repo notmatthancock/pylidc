@@ -5,7 +5,7 @@ here = path.abspath(path.dirname(__file__))
 
 setup(
     name='pylidc',
-    version='0.1.5',
+    version='0.1.6',
     description='A library for working with the LIDC dataset.',
     long_description='',
     url='https://github.com/pylidc/pylidc',
@@ -31,7 +31,7 @@ setup(
     packages=find_packages(exclude=['contrib', 'doc', 'tests*']),
     install_requires=[
         'sqlalchemy>=1.1.5', 'numpy>=1.12.0', 'scipy>=0.18.1',
-        'matplotlib>=2.0.0', 'pydicom>=0.9.9', 'scikit-image>=0.12.3'
+        'matplotlib>=2.0.0', 'pydicom>=0.9.9', 'scikit-image>=0.13'
     ],
     package_data={
         'pylidc': ['pylidc.sqlite'],
