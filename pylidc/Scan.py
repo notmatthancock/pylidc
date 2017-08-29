@@ -312,7 +312,7 @@ class Scan(Base):
         # This takes some work to accomplish...
         zs    = [float(img.ImagePositionPatient[-1]) for img in images]
         inums = [float(img.InstanceNumber) for img in images]
-        inds = range(len(zs))
+        inds = list(range(len(zs)))
         while np.unique(zs).shape[0] != len(inds):
             for i in inds:
                 for j in inds:
