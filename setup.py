@@ -1,11 +1,12 @@
 from os import path
 from setuptools import setup, find_packages
+from pylidc import __version__
 
 here = path.abspath(path.dirname(__file__))
 
 setup(
     name='pylidc',
-    version='0.1.6',
+    version=__version__,
     description='A library for working with the LIDC dataset.',
     long_description='',
     url='https://github.com/pylidc/pylidc',
