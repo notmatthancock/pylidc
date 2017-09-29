@@ -276,11 +276,6 @@ class Scan(Base):
         """
         Load all the DICOM images assocated with this scan and return as list.
 
-        The listed is sorted according to the Scan object's
-        `sorted_dicom_file_names` attribute, which *should* load the images
-        in order of increasing z index of the `ImagePositionPatient` attribute
-        of the DICOM files.
-
         Example:
             >>> scan = pl.query(pl.Scan).first()
             >>> images = scan.load_all_dicom_images()
@@ -441,16 +436,11 @@ class Scan(Base):
         update(None)
         plt.show()
 
-    def to_volume(self):
+    def to_volume(self, verbose=True):
         """
         Return the scan as a 3D numpy array volume.
         """
-        path = self.get_path_to_dicom_files()
-
-        images = []
-        for dicom_file_name in self.sorted_dicom_file_names.split(','):
-            with open( os.path.join(path, dicom_file_name) ) as f:
-                images.append( dicom.read_file(f) )
+        images = self.load_all_dicom_images(verbose=verbose)
 
         volume = np.zeros((512,512,len(images)))
         for i in range(len(images)):
