@@ -221,19 +221,19 @@ class Annotation(Base):
                                           fstrings[i], fvals[i]))
 
 
-    def bbox(self, image_coords=False):
+    def bbox(self, image_coords=True):
         """
         Return a 3 by 2 matrix, corresponding to the bounding box of the 
         annotation within the scan. If `scan_slice` is a numpy array 
         containing aslice of the scan, each slice of the annotation is 
         contained within the box:
 
-            bbox[1,0]:bbox[1,1]+1, bbox[0,0]:bbox[0,1]+1
+            bbox[0,0]:bbox[0,1]+1, bbox[1,0]:bbox[1,1]+1
 
-        If `image_coords` is `True` then each annotation slice is 
+        If `image_coords` is `False` then each annotation slice is 
         instead contained within:
             
-            bbox[0,0]:bbox[0,1]+1, bbox[1,0]:bbox[1,1]+1
+            bbox[1,0]:bbox[1,1]+1, bbox[0,0]:bbox[0,1]+1
 
         The last row of `bbox` give the inclusive lower and upper 
         bounds of the `image_z_position`.
@@ -242,7 +242,7 @@ class Annotation(Base):
         bbox   = np.c_[matrix.min(axis=0), matrix.max(axis=0)]
         return bbox if not image_coords else bbox[[1,0,2]]
 
-    def bbox_dimensions(self, image_coords=False):
+    def bbox_dimensions(self, image_coords=True):
         """
         Return the dimensions of the nodule bounding box in mm.
         """
@@ -580,7 +580,7 @@ class Annotation(Base):
             512 x 512 x num_slices dicom volume, `mask` is a boolean 
             mask over the region, `bbox[i,0]:bbox[i,1]+1`, i=0,1,2
         """
-        bbox = self.bbox()
+        bbox = self.bbox(image_coords=False)
         zs = np.unique([c.image_z_position for c in self.contours])
         z_to_index = dict(zip(zs,range(len(zs))))
 

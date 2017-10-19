@@ -23,7 +23,7 @@ For more information, see the model classes themselves.
 """
 from __future__ import print_function as _pf
 
-__version__ = '0.1.8'
+__version__ = '0.1.9'
 
 # Hidden stuff.
 import os as _os
