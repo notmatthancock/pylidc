@@ -1,4 +1,4 @@
-import os
+import os, warnings
 import sqlalchemy as sq
 from sqlalchemy.orm import relationship
 from ._Base import Base
@@ -20,11 +20,12 @@ from scipy.spatial.distance import pdist,squareform
 from scipy.interpolate import RegularGridInterpolator
 
 # For 3D visualizer.
+from skimage.measure import marching_cubes, mesh_surface_area
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.spatial import Delaunay
 from scipy.ndimage.morphology import distance_transform_edt as dtrans
-from skimage.measure import marching_cubes, mesh_surface_area
+
 
 feature_names = \
    ('subtlety',
@@ -39,6 +40,8 @@ feature_names = \
 
 _off_limits = ['id','scan_id','_nodule_id','scan'] + \
               list(feature_names)
+
+viz3dbackends = ['matplotlib', 'mayavi']
 
 class Annotation(Base):
     """
@@ -368,53 +371,80 @@ class Annotation(Base):
             volume += (1. if contour.inclusion else -1.) * area * spacing_z
         return volume
 
-    def visualize_in_3d(self, edgecolor='0.2', cmap='viridis'):
+    def visualize_in_3d(self, edgecolor='0.2', cmap='viridis',
+                        backend='matplotlib'):
         """
         Visualize in 3d a triangulation of the nodule's surface.
 
         edgecolor: string color or rgb 3-tuple
             Sets edgecolors of triangulation.
+            Ignored if backend != matplotlib.
 
         cmap: matplotlib colormap string.
             Sets the facecolors of the triangulation.
             See `matplotlib.cm.cmap_d.keys()` for all available.
+            Ignored if backend != matplotlib.
+
+        backend: string
+            The backend for visualization. Default is matplotlib.
+            Execute `from pylidc.Annotation import viz3dbackends` to
+            see available backends.
 
         Example:
             >>> ann = pl.query(pl.Annotation).first()
             >>> ann.visualize_in_3d(edgecolor='green', cmap='autumn')
+            >>> ann.visualize_in_3d(backend='mayavi') # If mayavi available.
         """
-        if cmap not in plt.cm.cmap_d.keys():
-            raise ValueError("Invalid `cmap`. See `plt.cm.cmap_d.keys()`.")
+        if backend not in viz3dbackends:
+            raise ValueError("backend should be in %s." % viz3dbackends)
+
+        if backend == 'matplotlib':
+            if cmap not in plt.cm.cmap_d.keys():
+                raise ValueError("Invalid `cmap`. See `plt.cm.cmap_d.keys()`.")
 
         mask = self.get_boolean_mask()
         mask = np.pad(mask, [(1,1), (1,1), (1,1)], 'constant') # Cap the ends.
+
+        # The zero set of the distance transform
+        # makes for a little nicer surface.
         dist = dtrans(mask) - dtrans(~mask)
 
         rxy  = self.scan.pixel_spacing
         rz   = self.scan.slice_thickness
-        verts, faces, _, _= marching_cubes(dist, 0, spacing=(rxy, rxy, rz))
-        maxes = np.ceil(verts.max(axis=0))
 
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+        if backend == 'matplotlib':
+            verts, faces, _, _= marching_cubes(dist, 0, spacing=(rxy, rxy, rz))
+            maxes = np.ceil(verts.max(axis=0))
 
-        t = np.linspace(0, 1, faces.shape[0])
-        mesh = Poly3DCollection(verts[faces], 
-                                edgecolor=edgecolor,
-                                facecolors=plt.cm.cmap_d[cmap](t))
-        ax.add_collection3d(mesh)
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
 
-        ax.set_xlim(0, maxes[0])
-        ax.set_xlabel('length (mm)')
+            t = np.linspace(0, 1, faces.shape[0])
+            mesh = Poly3DCollection(verts[faces], 
+                                    edgecolor=edgecolor,
+                                    facecolors=plt.cm.cmap_d[cmap](t))
+            ax.add_collection3d(mesh)
 
-        ax.set_ylim(0, maxes[1])
-        ax.set_ylabel('length (mm)')
+            ax.set_xlim(0, maxes[0])
+            ax.set_xlabel('length (mm)')
 
-        ax.set_zlim(0, maxes[2])
-        ax.set_zlabel('length (mm)')
+            ax.set_ylim(0, maxes[1])
+            ax.set_ylabel('length (mm)')
 
-        plt.tight_layout()
-        plt.show()
+            ax.set_zlim(0, maxes[2])
+            ax.set_zlabel('length (mm)')
+
+            plt.tight_layout()
+            plt.show()
+        elif backend == 'mayavi':
+            try:
+                from mayavi import mlab
+                sf = mlab.pipeline.scalar_field(dist)
+                sf.spacing = [rxy, rxy, rz]
+                mlab.pipeline.iso_surface(sf, contours=[0.0])
+                mlab.show()
+            except ImportError:
+                print("Mayavi could not be imported. Is it installed?")
 
 
     def visualize_in_scan(self, verbose=True):
@@ -689,7 +719,7 @@ class Annotation(Base):
 
     def uniform_cubic_resample(self, side_length=None, resample_vol=True,
                                irp_pts=None, return_irp_pts=False,
-                               verbose=True):
+                               resample_img=True, verbose=True):
         """
         Get the CT value volume and respective boolean mask volume. The 
         volumes are interpolated and resampled to have uniform spacing of 1mm

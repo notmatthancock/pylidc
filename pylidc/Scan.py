@@ -33,8 +33,10 @@ warndpath = True
 if os.path.exists(cfgpath):
     cp = configparser.SafeConfigParser()
     cp.read(cfgpath)
+
     if cp.has_option('dicom', 'path'):
         dicompath = cp.get('dicom', 'path')
+
     if cp.has_option('dicom', 'warn'):
         warndpath = cp.get('dicom', 'warn') == 'True'
 
