@@ -40,6 +40,7 @@ from .Scan       import Scan
 from .Scan       import dicompath
 from .Annotation import Annotation
 from .Contour    import Contour
+from utils import consensus
 
 def query(*args):
     """

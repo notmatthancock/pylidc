@@ -128,10 +128,34 @@ class Scan(Base):
         else:
             super(Scan,self).__setattr__(name,value)
     
-    def get_path_to_dicom_files(self, checkpath=True):
+    def get_path_to_dicom_files(self):
         """
         Get the path to where the dicom files are stored for this scan, 
-        relative to the root path set in the your configuration file.
+        relative to the root path set in the pylidc configuration file (e.g.,
+        `~/.pylidc` in MAC and Linux).
+        
+        *This path is tricky and would benefit from coordination with TCIA.*
+
+        1.) In older downloads, the data DICOM data would download as:
+
+            [...]/LIDC-IDRI/LIDC-IDRI-####/scan_instance_uid/series_instance_uid/*.dcm
+
+            For example,
+        
+            /data/storage/path/LIDC-IDRI/LIDC-IDRI-0078/1.3.6.1.4.1.14519.5.2.1.6279.6001.339170810277323131167631068432/1.3.6.1.4.1.14519.5.2.1.6279.6001.303494235102183795724852353824
+
+        2.) However, in more recent downloads, the data is downloaded like:
+
+            [...]/LIDC-IDRI/LIDC-IDRI-####/??????
+
+        We first check 1.) and hope that it works. Otherwise, we check if the
+        `LIDC-IDRI-#### folder exists in the root path. If so, then we 
+        recursively search the `LIDC-IDRI-####` directory until we find
+        the correct subfolder that contains a DICOM file with the correct
+        `study_instance_uid` and `series_instance_uid`.
+
+        Note that 2.) is much less efficient that 1.); however, 2.) is very
+        robust.
 
         Example:
             >>> scan = pl.query(pl.Scan).first()
@@ -140,17 +164,49 @@ class Scan(Base):
         """
         if dicompath is None:
             raise EnvironmentError(dpath_msg)
-        path = os.path.join(dicompath,
-                            self.patient_id,
+
+        base = os.path.join(dicompath, self.patient_id)
+
+        if not os.path.exists(base):
+            raise IOError("Couldn't find DICOM files for %s in %s."
+                          % (self, base))
+
+        path = os.path.join(base,
                             self.study_instance_uid,
                             self.series_instance_uid)
-        errstr = \
-        "The path:\n\n %s \n\n doesn't exist.\n\
-        Does the folder exists there? Have you set set the root path to \n\
-        your dicom folder, using `pylidc.set_path_to_dicom_files()`?" % path 
 
-        if checkpath:
-            assert os.path.exists(path), errstr
+        # Check if old path first. If not found, do recursive search.
+        if not os.path.exists(path): # and base exists
+            found = False
+            for dpath,dnames,fnames in os.walk(base):
+                # Skip if no files in current dir.
+                if len(fnames) == 0: continue
+                
+                # Gather up DICOM files in dir (if any).
+                dicom_file = [d for d in fnames if d.endswith(".dcm")]
+
+                # Skip if no DICOM files.
+                if len(dicom_file) == 0: continue
+
+                # Grab the first DICOM file in the dir since they should
+                # all have the same series/study ids.
+                dicom_file = dicom_file[0]
+
+                with open(os.path.join(dpath, dicom_file)) as f:
+                    dimage = dicom.read_file(f)
+
+                seid = str(dimage.SeriesInstanceUID).strip()
+                stid = str(dimage.StudyInstanceUID).strip()
+
+                if seid == self.series_instance_uid and \
+                   stid == self.study_instance_uid:
+                   path = dpath
+                   found = True
+                   break
+
+            if not found:
+                raise IOError("Couldn't find DICOM files for %s."%self)
+
         return path
 
     def cluster_annotations(self, metric='min', tol=None, factor=0.9,
