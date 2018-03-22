@@ -40,9 +40,8 @@ def consensus(anns, clevel=0.5, extent=None, verbose=True):
     rk  = scan.slice_thickness
 
     # Load the images. Get the z positions.
-    images = scan.load_all_dicom_images(verbose=verbose)
-    img_zs = [float(img.ImagePositionPatient[-1]) for img in images]
-    img_zs = np.unique(img_zs)
+    vol = scan.to_volume()
+    img_zs = scan.slice_coords
 
     bboxs = np.array([a.bbox(image_coords=1) for a in anns])
 

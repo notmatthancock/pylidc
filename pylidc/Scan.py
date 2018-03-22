@@ -322,7 +322,7 @@ class Scan(Base):
         # Sort the clusters by increasing average z value of centroids.
         # This is really a convienience thing for the `scan.visualize` method.
         clusters = sorted(clusters, 
-                          key=lambda cluster: np.mean([ann.centroid()[2]
+                          key=lambda cluster: np.mean([ann.centroid[2]
                                                        for ann in cluster]))
 
         if return_distance_matrix:
@@ -408,9 +408,9 @@ class Scan(Base):
         # Add annotation indicators if necessary.
         if annotation_groups is not None:
             nnods = len(annotation_groups)
-            centroids = [np.array([a.centroid() for a in group]).mean(0)
+            centroids = [np.array([a.centroid for a in group]).mean(0)
                                           for group in annotation_groups]
-            radii = [np.mean([a.estimate_diameter()/2 for a in group])
+            radii = [np.mean([a.diameter/2 for a in group])
                                         for group in annotation_groups]
 
             arrows = []
@@ -493,6 +493,15 @@ class Scan(Base):
         sslice.on_changed(update)
         update(None)
         plt.show()
+
+    @property
+    def slice_coords(self):
+        """
+        The "z-values" for the slices of the scan (i.e.,
+        the last coordinate of the ImagePositionPatient DICOM attribute)
+        as a NumPy array sorted in increasing order.
+        """
+        return np.sort([z.val for z in self.zvals])
 
     def to_volume(self, verbose=True):
         """

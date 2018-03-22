@@ -54,18 +54,24 @@ class Annotation(Base):
         >>> import pylidc as pl
         >>> # Get the first annotation with spiculation value greater than 3.
         >>> ann = pl.query(pl.Annotation).filter(pl.Annotation.spiculation > 3).first()
+        >>>
         >>> print(ann.spiculation)
         >>> # => 4
-        >>> # Each nodule feature has a helper function to print the semantic value.
-        >>> print(ann.Spiculation())
+        >>>
+        >>> # Each nodule feature has a corresponding property 
+        >>> # to print the semantic value.
+        >>> print(ann.Spiculation)
         >>> # => Medium-High Spiculation
         >>> 
-        >>> q = pl.query(pl.Annotation).join(pl.Scan).filter(pl.Scan.resolution_z <= 1, pl.Annotation.malignancy == 5)
+        >>> q = pl.query(pl.Annotation).join(pl.Scan)
+        >>> q = q.filter(pl.Scan.slice_thickness <= 1,
+        >>>              pl.Annotation.malignancy == 5)
         >>> print(q.count())
         >>> # => 58
+        >>>
         >>> ann = q.first()
-        >>> print(ann.estimate_diameter(), ann.estimate_volume())
-        >>> # => 17.9753270062 1240.43532257
+        >>> print("%.2f, %.2f, %.2f" % (ann.diameter, ann.surface_area, ann.volume))
+        >>> # => 17.98, 1221.40, 1033.70
     """
     __tablename__ = 'annotations'
     id            = sq.Column('id', sq.Integer, primary_key=True)
@@ -97,6 +103,7 @@ class Annotation(Base):
 
     ####################################
     # { Begin semantic attribute functions
+    @property
     def Subtlety(self):
         """return subtlety value as string"""
         s = self.subtlety
@@ -107,6 +114,7 @@ class Annotation(Base):
         elif s == 4: return 'Moderately Obvious'
         elif s == 5: return 'Obvious'
 
+    @property
     def InternalStructure(self):
         """return internalStructure value as string"""
         s = self.internalStructure
@@ -116,6 +124,7 @@ class Annotation(Base):
         elif s == 3: return 'Fat'
         elif s == 4: return 'Air'
 
+    @property
     def Calcification(self):
         """return calcification value as string"""
         s = self.calcification
@@ -127,6 +136,7 @@ class Annotation(Base):
         elif s == 5: return 'Central'
         elif s == 6: return 'Absent'
 
+    @property
     def Sphericity(self):
         """return sphericity value as string"""
         s = self.sphericity
@@ -137,6 +147,7 @@ class Annotation(Base):
         elif s == 4: return 'Ovoid/Round'
         elif s == 5: return 'Round'
 
+    @property
     def Margin(self):
         """return margin value as string"""
         s = self.margin
@@ -147,6 +158,7 @@ class Annotation(Base):
         elif s == 4: return 'Near Sharp'
         elif s == 5: return 'Sharp'
 
+    @property
     def Lobulation(self):
         """return lobulation value as string"""
         s = self.lobulation
@@ -157,6 +169,7 @@ class Annotation(Base):
         elif s == 4: return 'Near Marked Lobulation'
         elif s == 5: return 'Marked Lobulation'
 
+    @property
     def Spiculation(self):
         """return spiculation value as string"""
         s = self.spiculation
@@ -167,6 +180,7 @@ class Annotation(Base):
         elif s == 4: return 'Near Marked Spiculation'
         elif s == 5: return 'Marked Spiculation'
 
+    @property
     def Texture(self):
         """return texture value as string"""
         s = self.texture
@@ -177,6 +191,7 @@ class Annotation(Base):
         elif s == 4: return 'Solid/Mixed'
         elif s == 5: return 'Solid'
 
+    @property
     def Malignancy(self):
         """return malignancy value as string"""
         s = self.malignancy
@@ -205,7 +220,7 @@ class Annotation(Base):
             caps = [f.title() for f in feature_names]
             k = caps.index('Internalstructure')
             caps[k] = 'InternalStructure'
-            return fvals, [getattr(self, c)() for c in caps]
+            return fvals, [getattr(self, c) for c in caps]
         else:
             return fvals
 
@@ -254,29 +269,23 @@ class Annotation(Base):
         df[:2] = df[:2]*self.scan.pixel_spacing
         return df
 
-    def centroid(self, image_coords=True):
+    @property
+    def centroid(self):
         """
         Return the center of mass of the nodule as determined by its 
-        radiologist-drawn contours.
+        radiologist-drawn contours. Note that coordinates are image
+        domain coordinates (i.e., (i,j,k), not (x,y,z)).
         """
-        return self.contours_to_matrix(image_coords).mean(axis=0)
+        return self.contours_to_matrix().mean(axis=0)
 
-    def estimate_diameter(self, return_indices=False):
+    @property
+    def diameter(self):
         """
         Estimate the greatest axial plane diameter using the annotation's 
         contours. This estimation does not currently account for cases 
         where the diamter passes outside the boundary of the nodule, or 
         through cavities within the nodule.
         
-        TODO?: The greatest diameter perpendicular to the greatest 
-        diameter could be computed here as well.
-
-        return_indices: bool, default False
-            If `True`, a 3-tuple of indices is return along with the 
-            maximum diameter, `(i,j,k)`, where `i` is the index of the 
-            contour where the max occurs, and `j` and `k` refer to the 
-            two contour points between which is the maximum diameter.
-
         returns: float (or float,Contour)
             Returns the diameter as float, accounting for the axial-plane 
             resolution of the scan. The units are mm.
@@ -301,12 +310,10 @@ class Annotation(Base):
                 i = c
                 j,k = np.unravel_index(diameters.argmax(), diameters.shape)
 
-        if not return_indices:
-            return greatest_diameter
-        else:
-            return greatest_diameter, (i,j,k)
+        return greatest_diameter
 
-    def estimate_surface_area(self):
+    @property
+    def surface_area(self):
         """
         Estimate the surface area by summing the areas of a trianglation
         of the nodules surface in 3d. Returned units are mm^2.
@@ -320,7 +327,8 @@ class Annotation(Base):
         verts, faces, _, _ = marching_cubes(dist, 0, spacing=(rxy, rxy, rz))
         return mesh_surface_area(verts, faces)
 
-    def estimate_volume(self):
+    @property
+    def volume(self):
         """
         Estimate the volume of the annotated nodule, using the contour 
         annotations. Green's theorem (via the shoelace formula) is first 
@@ -372,7 +380,7 @@ class Annotation(Base):
         return volume
 
     def visualize_in_3d(self, edgecolor='0.2', cmap='viridis',
-                        backend='matplotlib'):
+                        step=1, backend='matplotlib'):
         """
         Visualize in 3d a triangulation of the nodule's surface.
 
@@ -384,6 +392,10 @@ class Annotation(Base):
             Sets the facecolors of the triangulation.
             See `matplotlib.cm.cmap_d.keys()` for all available.
             Ignored if backend != matplotlib.
+
+        step: int, default=1
+            The `step_size` parameter for the skimage marching_cubes function.
+            Bigger values are quicker, but yield coarser surfaces.
 
         backend: string
             The backend for visualization. Default is matplotlib.
@@ -405,15 +417,13 @@ class Annotation(Base):
         mask = self.get_boolean_mask()
         mask = np.pad(mask, [(1,1), (1,1), (1,1)], 'constant') # Cap the ends.
 
-        # The zero set of the distance transform
-        # makes for a little nicer surface.
-        dist = dtrans(mask) - dtrans(~mask)
-
         rxy  = self.scan.pixel_spacing
         rz   = self.scan.slice_thickness
 
         if backend == 'matplotlib':
-            verts, faces, _, _= marching_cubes(dist, 0, spacing=(rxy, rxy, rz))
+            verts, faces, _, _= marching_cubes(mask.astype(np.float), 0.5,
+                                               spacing=(rxy, rxy, rz),
+                                               step_size=step)
             maxes = np.ceil(verts.max(axis=0))
 
             fig = plt.figure()
@@ -473,7 +483,7 @@ class Annotation(Base):
                               cmap=plt.cm.gray)
 
         contour_lines = []
-        # We draw all the contours initally and set the visibility
+        # We draw all the contours initially and set the visibility
         # to False. This works better than trying create and destroy
         # plots every time we update the image.
         for i,c in enumerate(contours):
@@ -517,7 +527,7 @@ class Annotation(Base):
                 fname = 'InternalStructure'
 
             row.append(fname)
-            row.append(getattr(self,fname)())
+            row.append(getattr(self,fname))
             row.append(getattr(self,f))
 
             cell_text.append(row)

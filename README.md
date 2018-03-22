@@ -92,7 +92,17 @@ You can engage an interactive slice view by calling:
 
     scan.visualize()
 
-Note that calling `visualize` on a scan object doesn't include its annotation information -- you must call the `visualize_in_scan` member function of an `Annotation` object to do this.
+By default, note that calling `visualize` on a scan object doesn't include its annotation information. However, if `scan.visualize` is supplied with a list of `Annotation` objects (say, grouped by the `scan.cluster_annotations()` function), then this annotation information *will* be displayed. For example
+
+    nodules = scan.cluster_annotations()
+    print(len(nodules))
+    # => 3
+
+    # Visualize the slices with the provided annotations indicated by arrows.
+    scan.visualize(annotations)
+
+`scan.cluster_annotations` returns a list. Each element of the list is a list of `Annotation` objects where each `Annotation` refers to the same nodule in the scan (probably). See [Clustering annotations](#clustering-annotations-to-identify-those-which-refer-to-the-same-physical-nodule) for more details on this function.
+
 
 #### The `Annotation` model
 
@@ -102,11 +112,11 @@ Let's grab the first annotation from the `Scan` object above:
     print(ann.scan.patient_id)
     # => LIDC-IDRI-0066
 
-    print(ann.spiculation, ann.Spiculation())
+    print(ann.spiculation, ann.Spiculation)
     # => 3, Medium Spiculation
 
-    print(ann.estimate_diameter(), ann.estimate_volume())
-    # => 15.4920358194, 888.052284241
+    print("%.2f, %.2f, %.2f" % (ann.diameter, ann.surface_area, ann.volume))
+    # => 15.49, 1041.37, 888.05
 
     ann.print_formatted_feature_table()
     # => Feature              Meaning                    # 
@@ -121,19 +131,29 @@ Let's grab the first annotation from the `Scan` object above:
     # => Texture            | Solid                    | 5 
     # => Malignancy         | Moderately Suspicious    | 4
 
-    from pylidc.Annotation import feature_names as fnames
     fvals, fstrings = ann.feature_vals(return_str=True)
-    print(fnames[0].title(), fstrings[0], fvals[0])
-    # => Subtlety, Obvious, 5
+
+    for fname,fval,fstr in zip(pl.annotation_feature_names, fvals, fstrings):
+        print(fname.title(), fval, fstr)
+    # => 'Subtlety', 5, 'Obvious'
+    # => 'Internalstructure', 1, 'Soft Tissue'
+    # => 'Calcification', 6, 'Absent'
+    # => 'Sphericity', 3, 'Ovoid'
+    # => 'Margin', 1, 'Poorly Defined'
+    # => 'Lobulation', 4, 'Near Marked Lobulation'
+    # => 'Spiculation', 3, 'Medium Spiculation'
+    # => 'Texture', 5, 'Solid'
+    # => 'Malignancy', 4, 'Moderately Suspicious'
 
 Let's try a different query on the annotations directly:
 
-    qu = pl.query(pl.Annotation).filter(pl.Annotation.lobulation > 3, pl.Annotation.malignancy == 5)
+    qu = pl.query(pl.Annotation).filter(pl.Annotation.lobulation > 3,
+                                        pl.Annotation.malignancy == 5)
     print(qu.count())
     # => 183
 
     ann = qu.first()
-    print(ann.lobulation, ann.Lobulation(), ann.malignancy, ann.Malignancy())
+    print(ann.lobulation, ann.Lobulation, ann.malignancy, ann.Malignancy)
     # => 4, Near Marked Lobulation, 5, Highly Suspicious
 
     print(len(ann.contours))
@@ -142,7 +162,7 @@ Let's try a different query on the annotations directly:
     print(ann.contours_to_matrix().shape)
     # => (671, 3)
 
-    print(ann.contours_to_matrix().mean(axis=0) - ann.centroid())
+    print(ann.contours_to_matrix().mean(axis=0) - ann.centroid)
     # => [ 0.  0.  0.]
 
 You can engage an interactive slice viewer that displays annotation values and the radiologist-drawn contours:
@@ -211,12 +231,12 @@ import pylidc as pl
 scan = pl.query(pl.Scan).first()
 nods = scan.cluster_annotations()
 
-print "Scan is estimated to have", len(nods), "nodules."
+print("Scan is estimated to have", len(nods), "nodules.")
 
 for i,nod in enumerate(nods):
-    print "Nodule", i+1, "has", len(nod), "annotations."
+    print("Nodule", i+1, "has", len(nod), "annotations.")
         for j,ann in enumerate(nod):
-            print "-- Annotation", j+1, "centroid:", ann.centroid()
+            print("-- Annotation", j+1, "centroid:", ann.centroid)
 ```
 
 Output:

@@ -40,6 +40,9 @@ from .Scan       import Scan
 from .Scan       import dicompath
 from .Annotation import Annotation
 from .Contour    import Contour
+from .Zval       import Zval
+
+from .Annotation import feature_names as annotation_feature_names
 from utils import consensus
 
 def query(*args):
@@ -57,7 +60,7 @@ def query(*args):
         >>> print qu.count()
         >>> # => 1083
         >>> annotation = qu.first()
-        >>> print annotation.estimate_volume()
+        >>> print annotation.volume
         >>> # => 5230.33874999
     """
     return _session.query(*args)
