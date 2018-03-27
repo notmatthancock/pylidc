@@ -1,7 +1,7 @@
 import numpy as np
 from .Annotation import Annotation
 
-def consensus(anns, clevel=0.5, extent=None, verbose=True):
+def consensus(anns, clevel=0.5, pad=None, ret_masks=True, verbose=True):
     """
     Return the boolean-valued consensus volume amongst the
     provided annotations (`anns`) at a particular consensus level
@@ -18,59 +18,41 @@ def consensus(anns, clevel=0.5, extent=None, verbose=True):
         when >= 50% of the segmentations include that voxel, and 0
         otherwise.
 
-    extent: float, default=None
-        If a float, the volumes will be padded so that they have
-        physical dimensions >= `extent` units in each coordinate
-        axis direction. The default (None) doesn't perform this
-        operation.
+    pad: int, list, or float, default=None
+        See `Annotation.bbox` for description for this argument.
+
+    ret_masks: bool, default=True
+        If True, a list of masks is also returned corresponding to
+        all the annotations. Note that this slightly different than calling
+        `boolean_mask` on each respective Annotation object because these 
+        volumes will be the same shape and in a common reference frame.
 
     verbose: bool, default=True
         Turns the DICOM image loading message on/off.
+
+    returns: consensus_mask, consensus_bbox[, masks]
+        `consensus_mask` is the boolean-valued volume of the annotation
+        masks at `clevel` consensus. `consensus_bbox` is a 3-tuple of 
+        slices that can be used to index into the image volume at the 
+        corresponding location of `consensus_mask`. `masks` is a list of
+        boolean-valued mask volumes corresponding to each Annotation object.
+        Each mask in the `masks` list has the same shape and is sampled in 
+        the common reference frame provided by `consensus_bbox`.
     """
-    if not all([isinstance(a, Annotation) for a in anns]):
-        raise TypeError("`anns` should be list of `pylidc.Annotation`s.")
+    bmats = np.array([a.bbox_matrix(pad=pad) for a in anns])
+    imin,jmin,kmin = bmats[:,:,0].min(axis=0)
+    imax,jmax,kmax = bmats[:,:,1].max(axis=0)
 
-    clevel = float(clevel)
+    # consensus_bbox
+    cbbox = np.array([[imin,imax],
+                      [jmin,jmax],
+                      [kmin,kmax]])
 
-    if not (0.0 <= clevel <= 1.0):
-        raise ValueError("`clevel` should be between 0 and 1.")
+    masks = [a.boolean_mask(bbox=cbbox) for a in anns]
+    cmask = np.mean(masks, axis=0) >= clevel
+    cbbox = tuple(slice(cb[0], cb[1]+1, None) for cb in cbbox)
 
-    scan = anns[0].scan
-    rij = scan.pixel_spacing
-    rk  = scan.slice_thickness
-
-    # Load the images. Get the z positions.
-    vol = scan.to_volume()
-    img_zs = scan.slice_coords
-
-    bboxs = np.array([a.bbox(image_coords=1) for a in anns])
-
-    # Last dimension is z dist, not index.
-    for i in range(bboxs.shape[0]):
-        # Float comparison ... probably not the best way.
-        bboxs[i,2,0] = img_zs.searchsorted(bboxs[i,2,0])
-        bboxs[i,2,1] = img_zs.searchsorted(bboxs[i,2,1])
-    
-    # Cast to int now that everyone is an index.
-    bboxs = bboxs.astype(np.int)
-
-    imin,jmin,kmin = np.array([b[:,0] for b in bboxs]).min(0)
-    imax,jmax,kmax = np.array([b[:,1] for b in bboxs]).max(0)
-
-    while (imax-imin)*rij < extent:
-        imin -= 1 if imin > 0 else 0
-        imax += 1 if imax < 511 else 0
-
-    while (jmax-jmin)*rij < extent:
-        jmin -= 1 if jmin > 0 else 0
-        jmax += 1 if jmax < 511 else 0
-
-    while (kmax-kmin)*rk  < extent:
-        kmin -= 1 if kmin > 0 else 0
-        kmax += 1 if kmax < (img_zs.shape[0]-1) else 0
-
-    return_bbox = np.array([[imin, imax],
-                            [jmin, jmax],
-                            [kmin, kmax]])
-
-    raise NotImplementedError()
+    if ret_masks:
+        return cmask, cbbox, masks
+    else:
+        return cmask, cbbox

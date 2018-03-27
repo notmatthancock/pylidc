@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from ._Base import Base
 
 import os, warnings
-import dicom
+import pydicom as dicom
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -15,9 +15,10 @@ from scipy.spatial.distance import cdist
 from scipy.sparse.csgraph import connected_components
 from .annotation_distance_metrics import metrics
 
+from scipy.stats import mode
+
 
 # Load the configuration file and get the dicom file path.
-
 try:
     import configparser
 except ImportError:
@@ -60,40 +61,56 @@ _off_limits = ['id','study_instance_uid','series_instance_uid',
 class Scan(Base):
     """
     The Scan model class refers to the top-level XML file from the LIDC.
-    A scan has many annotations, each of which is the `unblindedReadNodule`
-    for the scan.
+    A scan has many :class:`pylidc.Annotation` objects, which correspond
+    to the `unblindedReadNodule` XML attributes for the scan.
 
-    Attributes:
-        study_instance_uid: string
-        series_instance_uid: string 
+    Attributes
+    ==========
 
-        patient_id: string
-            Identifier of the from `LIDC-IDRI-#`
+    study_instance_uid: string
+    series_instance_uid: string 
 
-        slice_thickness: float
-            Dicom attribute, `(0018,0050)`. Note that this may not be 
-            equal to `spacing_betwee_slices`.
+    patient_id: string
+        Identifier of the from `LIDC-IDRI-####`
 
-        pixel_spacing: float
-            Dicom attribute, `(0028,0030)`. This is normally two 
-            values. All scans in the LIDC have equal resolutions 
-            in the transverse plane, so only one value is taken here.
+    slice_thickness: float
+        DICOM attribute, `(0018,0050)`. Note that this may not be 
+        equal to the `slice_spacing` attribute (see below).
 
-        contrast_used: bool
-            If the dicom file for the scan had any Contrast tag, 
-            this is marked as `True`.
+    slice_zvals: ndarray
+        The "z-values" for the slices of the scan (i.e.,
+        the last coordinate of the ImagePositionPatient DICOM attribute)
+        as a NumPy array sorted in increasing order.
 
-        is_from_initial: bool 
-            Indicates whether or not this PatientID was tagged as 
-            part of the initial 399 release.
+    slice_spacing: float
+        This computes the median of the difference
+        between the slice coordinates, i.e., `scan.slice_zvals`.
+        NOTE: that this attribute is typically (but not always!) the
+        same as the `slice_thickness` attribute. Furthermore,
+        the `slice_spacing` does NOT necessarily imply that all the 
+        slices are spaced with spacing (although they often are).
 
-        sorted_dicom_file_names: string
-            This is a string containing a comma-separated list 
-            like `[number].dcm`. It is a list of the dicom file 
-            names for this scan in order of increasing z-coordinate 
-            of dicom attribute, `(0020,0032)`. In rare cases where 
-            a scan includes multiple files with the same z-coordinate, 
-            the one with the lesser `InstanceNumber` is used.
+    pixel_spacing: float
+        Dicom attribute, `(0028,0030)`. This is normally two 
+        values. All scans in the LIDC have equal resolutions 
+        in the transverse plane, so only one value is taken here.
+
+    contrast_used: bool
+        If the DICOM file for the scan had any Contrast tag, 
+        this is marked as `True`.
+
+    is_from_initial: bool 
+        Indicates whether or not this PatientID was tagged as 
+        part of the initial 399 release.
+
+    sorted_dicom_file_names: string
+        This attribute is no longer used, but left for historical
+        reasons. This is a string containing a comma-separated list 
+        like `[number].dcm`. It is a list of the dicom file 
+        names for this scan in order of increasing z-coordinate 
+        of dicom attribute, `(0020,0032)`. In rare cases where 
+        a scan includes multiple files with the same z-coordinate, 
+        the one with the lesser `InstanceNumber` is used.
 
     Example:
         >>> import pylidc as pl
@@ -130,7 +147,7 @@ class Scan(Base):
     
     def get_path_to_dicom_files(self):
         """
-        Get the path to where the dicom files are stored for this scan, 
+        Get the path to where the DICOM files are stored for this scan, 
         relative to the root path set in the pylidc configuration file (e.g.,
         `~/.pylidc` in MAC and Linux).
         
@@ -192,8 +209,7 @@ class Scan(Base):
                 # all have the same series/study ids.
                 dicom_file = dicom_file[0]
 
-                with open(os.path.join(dpath, dicom_file)) as f:
-                    dimage = dicom.read_file(f)
+                dimage = dicom.dcmread(os.path.join(dpath, dicom_file))
 
                 seid = str(dimage.SeriesInstanceUID).strip()
                 stid = str(dimage.StudyInstanceUID).strip()
@@ -253,8 +269,6 @@ class Scan(Base):
             the number of unique physical nodules present in this Scan as 
             determined by this overlap method and the tolerance used.
 
-        ---
-
         More on the `tol` parameter and distance measures:
 
         The "distance" matrix, `d[i,j]`, between all Annotations for 
@@ -266,6 +280,22 @@ class Scan(Base):
         adjacent when `d[i,j] <= tol`. Groups are determined by finding 
         the connected components of the graph associated with 
         this adjacency matrix.
+
+        Example::
+
+            import pylidc as pl
+            
+            scan = pl.query(pl.Scan).first()
+            nodules = scan.cluster_annotations()
+            print("This can has %d nodules." % len(nodules))
+            # => This can has 4 nodules.
+            
+            for i,nod in enumerate(nodules):
+                print("Nodule %d has %d annotations." % (i+1,len(nod)))
+            # => Nodule 1 has 4 annotations.
+            # => Nodule 2 has 4 annotations.
+            # => Nodule 3 has 1 annotations.
+            # => Nodule 4 has 4 annotations.
         """
         assert 0 < factor < 1, "`factor` must be in the interval (0,1)."
 
@@ -334,15 +364,19 @@ class Scan(Base):
         """
         Load all the DICOM images assocated with this scan and return as list.
 
-        Example:
-            >>> scan = pl.query(pl.Scan).first()
-            >>> images = scan.load_all_dicom_images()
-            >>> zs = [float(img.ImagePositionPatient[2]) for img in images]
-            >>> print(zs[1] - zs[0], img.SliceThickness, scan.slice_thickness)
-            >>>
-            >>> import matplotlib.pyplot as plt
-            >>> plt.imshow( images[0].pixel_array, cmap=plt.cm.gray )
-            >>> plt.show()
+        Example::
+
+            import pylidc as pl
+            import matplotlib.pyplot as plt
+
+            scan = pl.query(pl.Scan).first()
+
+            images = scan.load_all_dicom_images()
+            zs = [float(img.ImagePositionPatient[2]) for img in images]
+            print(zs[1] - zs[0], img.SliceThickness, scan.slice_thickness)
+            
+            plt.imshow( images[0].pixel_array, cmap=plt.cm.gray )
+            plt.show()
         """
         if verbose: print("Loading dicom files ... This may take a moment.")
 
@@ -351,9 +385,8 @@ class Scan(Base):
                             if fname.endswith('.dcm')]
         images = []
         for fname in fnames:
-            with open(os.path.join(path, fname), 'rb') as f:
-                image = dicom.read_file(f)
-                images.append(image)
+            image = dicom.dcmread(os.path.join(path,fname))
+            images.append(image)
 
         # ##############################################
         # Clean multiple z scans.
@@ -392,6 +425,15 @@ class Scan(Base):
         annotation_groups: list of lists of Annotation objects
             This argument should be supplied by the returned object from
             the `cluster_annotations` method.
+
+        Example::
+
+            import pylidc as pl
+            
+            scan = pl.query(pl.Scan).first()
+            nodules = scan.cluster_annotations()
+            
+            scan.visualize(annotation_groups=nodules)
         """
         images = self.load_all_dicom_images()
 
@@ -419,8 +461,8 @@ class Scan(Base):
                 c = centroids[i]
                 s = '%d Annotations'%len(annotation_groups[i])
                 a = ax_image.annotate(s,
-                                      xy=(c[0]-r, c[1]-r),
-                                      xytext=(c[0]-50, c[1]-50),
+                                      xy=(c[1]-r, c[0]-r),
+                                      xytext=(c[1]-50, c[0]-50),
                                       bbox=dict(fc='w', ec='r'),
                                       arrowprops=dict(arrowstyle='->',
                                                       edgecolor='r'))
@@ -454,7 +496,8 @@ class Scan(Base):
                 c = centroids[i]
                 g = annotation_groups[i]
                 txt.append(['Nodule %d:'%(i+1),
-                            '%d annotations, near z=%.2f'%(len(g),c[2])])
+                            '%d annotations, near slice %d' \
+                                    % (len(g), int(c[2].round()))])
             ann_grps_table = ax_ann_grps.table(cellText=txt, loc='center',
                                                cellLoc='left')
             # Remove cell borders.
@@ -485,9 +528,9 @@ class Scan(Base):
             # Show annotation labels if possible.
             if annotation_groups is not None:
                 for i in range(len(annotation_groups)):
-                    dist = abs(z-centroids[i][2])
-                    arrows[i].set_visible(dist <= 3*self.slice_thickness)
-
+                    centroid_z = self.slice_zvals[int(centroids[i][2].round())]
+                    dist = abs(z - centroid_z)
+                    arrows[i].set_visible(dist <= 3*self.slice_spacing)
             fig.canvas.draw_idle()
 
         sslice.on_changed(update)
@@ -495,13 +538,26 @@ class Scan(Base):
         plt.show()
 
     @property
-    def slice_coords(self):
+    def slice_zvals(self):
         """
         The "z-values" for the slices of the scan (i.e.,
         the last coordinate of the ImagePositionPatient DICOM attribute)
         as a NumPy array sorted in increasing order.
         """
         return np.sort([z.val for z in self.zvals])
+
+    @property
+    def slice_spacing(self):
+        """
+        This computes the median of the difference
+        between the slice coordinates, i.e., `scan.slice_zvals`.
+
+        NOTE: that this attribute is typically (but not always!) the
+        same as the `slice_thickness` attribute. Furthermore,
+        the `slice_spacing` does NOT necessarily imply that all the 
+        slices are spaced with spacing (although they often are).
+        """
+        return np.median(np.diff(self.slice_zvals))
 
     def to_volume(self, verbose=True):
         """

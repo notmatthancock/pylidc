@@ -1,8 +1,8 @@
 """
---------------------------------------------------------
-Author: Matt Hancock, not.matt.hancock@gmail.com
+pylidc
 --------------------------------------------------------
 
+Author: Matt Hancock, not.matt.hancock@gmail.com
 This python module implements an (ORM) object relational mapping 
 to an sqlite database containing the annotation information from 
 the XML files provided by the LIDC dataset. The purpose of this 
@@ -13,7 +13,7 @@ contour attribtues.
 
 The ORM is implemented using sqlalchemy. There are three data models:
 
-Scan, Annotation, and Contour
+:class:`Scan`, :class:`Annotation`, and :class:`Contour`
 
 The relationships are "one to many" for each model going left 
 to right, i.e., scans have many annotations and annotations 
@@ -43,24 +43,29 @@ from .Contour    import Contour
 from .Zval       import Zval
 
 from .Annotation import feature_names as annotation_feature_names
-from utils import consensus
+from .utils import consensus
 
 def query(*args):
     """
-    Wraps the sqlalchemy session object. Some example usage:
+    Wraps the sqlalchemy session object. Some example usage::
     
-        >>> import pylidc as pl
-        >>> qu = pl.query(pl.Scan).filter(pl.Scan.slice_thickness <= 1.)
-        >>> print qu.count()
-        >>> # => 97
-        >>> scan = qu.first()
-        >>> print len(scan.annotations)
-        >>> # => 11
-        >>> qu = pl.query(pl.Annotation).filter((pl.Annotation.malignancy > 3), (pl.Annotation.spiculation < 3))
-        >>> print qu.count()
-        >>> # => 1083
-        >>> annotation = qu.first()
-        >>> print annotation.volume
-        >>> # => 5230.33874999
+        import pylidc as pl
+
+        qu = pl.query(pl.Scan).filter(pl.Scan.slice_thickness <= 1.)
+        print qu.count()
+        # => 97
+
+        scan = qu.first()
+        print(len(scan.annotations))
+        # => 11
+
+        qu = pl.query(pl.Annotation).filter(pl.Annotation.malignancy > 3,
+                                            pl.Annotation.spiculation < 3)
+        print(qu.count())
+        # => 1083
+
+        annotation = qu.first()
+        print(annotation.volume)
+        # => 5230.33874999
     """
     return _session.query(*args)

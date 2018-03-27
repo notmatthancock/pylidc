@@ -12,8 +12,8 @@ def pairdist(ann1, ann2, which):
     which: str
         One of 'min', 'max', or 'avg'.
     """
-    dists = cdist(ann1.contours_to_matrix(0),
-                  ann2.contours_to_matrix(0))
+    dists = cdist(ann1.contours_matrix,
+                  ann2.contours_matrix)
 
     if   which == 'min':
         return dists.min()
@@ -46,8 +46,8 @@ def centroid_xy(ann1, ann2, which):
     which: str
         One of 'min', 'max', or 'avg'.
     """
-    P1 = ann1.contours_to_matrix(0)
-    P2 = ann2.contours_to_matrix(0)
+    P1 = ann1.contours_matrix
+    P2 = ann2.contours_matrix
 
     zvals1 = set(np.unique(P1[:,2]).tolist())
     zvals2 = set(np.unique(P2[:,2]).tolist())
@@ -82,8 +82,8 @@ def hausdorff(ann1, ann2):
 
     [1]: https://en.wikipedia.org/wiki/Hausdorff_distance
     """
-    C = cdist(ann1.contours_to_matrix(0),
-              ann2.contours_to_matrix(0))
+    C = cdist(ann1.contours_matrix,
+              ann2.contours_matrix)
     return max(C.min(0).max(), C.min(1).max())
 
 metrics['hausdorff'] = hausdorff

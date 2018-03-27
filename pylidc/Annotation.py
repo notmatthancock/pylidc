@@ -4,7 +4,6 @@ from sqlalchemy.orm import relationship
 from ._Base import Base
 from .Scan import Scan
 
-import dicom
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -50,28 +49,59 @@ class Annotation(Base):
     has many contours, each of which refers to the contour drawn for 
     nodule in each scan slice.  
 
-    Example:
-        >>> import pylidc as pl
-        >>> # Get the first annotation with spiculation value greater than 3.
-        >>> ann = pl.query(pl.Annotation).filter(pl.Annotation.spiculation > 3).first()
-        >>>
-        >>> print(ann.spiculation)
-        >>> # => 4
-        >>>
-        >>> # Each nodule feature has a corresponding property 
-        >>> # to print the semantic value.
-        >>> print(ann.Spiculation)
-        >>> # => Medium-High Spiculation
-        >>> 
-        >>> q = pl.query(pl.Annotation).join(pl.Scan)
-        >>> q = q.filter(pl.Scan.slice_thickness <= 1,
-        >>>              pl.Annotation.malignancy == 5)
-        >>> print(q.count())
-        >>> # => 58
-        >>>
-        >>> ann = q.first()
-        >>> print("%.2f, %.2f, %.2f" % (ann.diameter, ann.surface_area, ann.volume))
-        >>> # => 17.98, 1221.40, 1033.70
+    Parameters
+    ----------
+    subtlety: int
+        blah
+
+    internalStructure: int
+        blah
+
+    calcification: int
+        blah
+
+    sphericity: int
+        blah
+
+    margin: int
+        blah
+
+    lobulation: int
+        blah
+
+    spiculation: int
+        blah
+
+    texture: int
+        blah
+
+    malignancy: int
+        blah
+
+    Example
+    ---------
+    ::
+        import pylidc as pl
+        # Get the first annotation with spiculation value greater than 3.
+        ann = pl.query(pl.Annotation).filter(pl.Annotation.spiculation > 3).first()
+        
+        print(ann.spiculation)
+        # => 4
+        
+        # Each nodule feature has a corresponding property 
+        # to print the semantic value.
+        print(ann.Spiculation)
+        # => Medium-High Spiculation
+        
+        q = pl.query(pl.Annotation).join(pl.Scan)
+        q = q.filter(pl.Scan.slice_thickness <= 1,
+                     pl.Annotation.malignancy == 5)
+        print(q.count())
+        # => 58
+        
+        ann = q.first()
+        print("%.2f, %.2f, %.2f" % (ann.diameter, ann.surface_area, ann.volume))
+        # => 17.98, 1221.40, 1033.70
     """
     __tablename__ = 'annotations'
     id            = sq.Column('id', sq.Integer, primary_key=True)
@@ -238,45 +268,200 @@ class Annotation(Base):
             print('%-18s | %-24s | %-2d'%(fnames[i].title(), 
                                           fstrings[i], fvals[i]))
 
-
-    def bbox(self, image_coords=True):
+    def bbox(self, pad=None):
         """
-        Return a 3 by 2 matrix, corresponding to the bounding box of the 
-        annotation within the scan. If `scan_slice` is a numpy array 
-        containing aslice of the scan, each slice of the annotation is 
-        contained within the box:
+        Returns a tuple of Python `slice` objects that can be used to index
+        into the image volume corresponding to the extent of the
+        (padded) bounding box.
 
-            bbox[0,0]:bbox[0,1]+1, bbox[1,0]:bbox[1,1]+1
+        Parameters
+        ----------
 
-        If `image_coords` is `False` then each annotation slice is 
-        instead contained within:
+        pad: int, list of ints, or float, default=None
+            * If None (default), then no padding is used.
+            * If an integer is provided, then the slices are padded
+              uniformly by this integer amount.
+            * If a list of integers is provided, then it is of the form
+                  `[(i1,i2), (j1,j2), (k1,k2)]` 
+              and indicates the pad amounts along each coordinate axis.
+            * If a float is provided, then the slices are padded such
+              that the bounding box occupies at least `pad` physical units
+              (using the corresponding scan `pixel_spacing` and `slice_spacing`
+              parameters). This means the returned Slice indices will
+              yield a bounding box that is at least `pad` millimeters along
+              each coordinate axis direction.
+
+        Note
+        ----
+        In the various `pad` cases above, borders are handled so that if a 
+        pad beyond the image borders is requested, then it is set 
+        to the maximum (or minimum, depending on the direction)
+        possible index.
+
+        Examples
+        --------
+
+        The example below illustrates the various `pad` argument types::
+
+            import pylidc as pl
             
-            bbox[1,0]:bbox[1,1]+1, bbox[0,0]:bbox[0,1]+1
+            ann = pl.query(pl.Annotation).first()
+            vol = ann.scan.to_volume()
+            
+            print ann.bbox()
+            # => (slice(151, 185, None), slice(349, 376, None), slice(44, 50, None))
+            
+            print(vol[ann.bbox()].shape)
+            # => (34, 27, 6)
+            
+            print(vol[ann.bbox(pad=2)].shape)
+            # => (38, 31, 10)
+            
+            print(vol[ann.bbox(pad=[(1,2), (3,0), (2,4)])].shape)
+            # => (37, 30, 12)
+            
+            print(max(ann.bbox_dims()))
+            # => 21.45
+            
+            print(vol[ann.bbox(pad=30.0)].shape)
+            # => (48, 49, 12)
+            
+            print(ann.bbox_dims(pad=30.0))
+            # => [30.55, 31.200000000000003, 33.0]
+        """
+        # Error checking ...
+        if pad is not None:
+            if not isinstance(pad, (int, list, float)):
+                raise TypeError("`pad` is incorrect type.")
+            if isinstance(pad, list):
+                if len(pad) != 3:
+                    raise ValueError("`pad` list length should be 3.")
+                for p in pad:
+                    msg = "`pad` list elements should be (int, int)"
+                    if len(p) != 2:
+                        raise ValueError(msg)
+                    if not isinstance(p[0], int) or not isinstance(p[1], int):
+                        raise TypeError(msg)
 
-        The last row of `bbox` give the inclusive lower and upper 
-        bounds of the `image_z_position`.
-        """
-        matrix = self.contours_to_matrix()
-        bbox   = np.c_[matrix.min(axis=0), matrix.max(axis=0)]
-        return bbox if not image_coords else bbox[[1,0,2]]
+        # The index limits for the scan.
+        limits = [(0,511), (0,511), (0,self.scan.slice_zvals.shape[0]-1)]
 
-    def bbox_dimensions(self, image_coords=True):
+        cmatrix = self.contours_matrix
+        imin,jmin,kmin = cmatrix.min(axis=0)
+        imax,jmax,kmax = cmatrix.max(axis=0)
+
+        # Adding the padding for each respective case, handling the
+        # borders as needed.
+        if isinstance(pad, int):
+            imin = max(imin-pad, limits[0][0])
+            imax = min(imax+pad, limits[0][1])
+            jmin = max(jmin-pad, limits[1][0])
+            jmax = min(jmax+pad, limits[1][1])
+            kmin = max(kmin-pad, limits[2][0])
+            kmax = min(kmax+pad, limits[2][1])
+        elif isinstance(pad, list):
+            imin = max(imin-pad[0][0], limits[0][0])
+            imax = min(imax+pad[0][1], limits[0][1])
+            jmin = max(jmin-pad[1][0], limits[1][0])
+            jmax = min(jmax+pad[1][1], limits[1][1])
+            kmin = max(kmin-pad[2][0], limits[2][0])
+            kmax = min(kmax+pad[2][1], limits[2][1])
+        elif isinstance(pad, float):
+            # In this instance, we compute the extend the limits
+            # until the required physical size is met (or until we can 
+            # no long extend the index).
+            rij = self.scan.pixel_spacing
+            rk  = self.scan.slice_spacing
+
+            # Check if the desired bbox size is not smaller than is possible.
+            if isinstance(pad, float):
+                minsize = max(self.bbox_dims(pad=None))
+                if pad < minsize:
+                    raise ValueError(("Requested `bbox` size (%.4f mm) is "
+                                      "less than minimal possible size "
+                                      "(%.4f mm).") % (pad, minsize))
+            while (imax-imin)*rij < pad:
+                imin -= 1 if imin > limits[0][0] else 0
+                imax += 1 if imax < limits[0][1] else 0
+                if imin == limits[0][0] and imax == limits[0][1]:
+                    break
+            while (jmax-jmin)*rij < pad:
+                jmin -= 1 if jmin > limits[1][0] else 0
+                jmax += 1 if jmax < limits[1][1] else 0
+                if jmin == limits[1][0] and jmax == limits[1][1]:
+                    break
+            while (kmax-kmin)*rk  < pad:
+                kmin -= 1 if kmin > limits[2][0] else 0
+                kmax += 1 if kmax < limits[2][1] else 0
+                if kmin == limits[2][0] and kmax == limits[2][1]:
+                    break
+
+        return (slice(imin,imax+1),
+                slice(jmin,jmax+1),
+                slice(kmin,kmax+1))
+
+
+    def bbox_dims(self, pad=None):
         """
-        Return the dimensions of the nodule bounding box in mm.
+        Return the physical dimensions of the nodule bounding box in mm.
+
+        pad: int, list, or float, default=None
+            See :meth:`pylidc.Annotation.bbox` for a 
+            description of this argument.
         """
-        bb = self.bbox(image_coords)
-        df = np.diff(bb)[:,0]
-        df[:2] = df[:2]*self.scan.pixel_spacing
-        return df
+        res = [self.scan.pixel_spacing,]*2 + [self.scan.slice_spacing]
+        return [(b.stop-1-b.start)*r for r,b in zip(res, self.bbox(pad=pad))]
+
+
+    def bbox_matrix(self, pad=None):
+        """
+        The `bbox` function returns a tuple of slices to be used to index
+        into an image volume. On the other hand, `bbox_array` returns
+        a 3x2 matrix where each row is the (start, stop) indices of the
+        i, j, and k axes.
+
+        pad: int, list, or float
+            See `Annotation.bbox` for description of this argument.
+
+        NOTE: The indices return by `bbox_array` are *inclusive*, whereas
+              the indices of the slice objects in the tuple return by `bbox`
+              are offset by +1 in the "stop" index.
+
+        Example:
+            >>> import pylidc as pl
+            >>> ann = pl.query(pl.Annotation).first()
+            >>>
+            >>> bb = ann.bbox()
+            >>> bm = ann.bbox_matrix()
+            >>> 
+            >>> print(all([bm[i,0] == bb[i].start for i in range(3)]))
+            >>> # => True
+            >>> 
+            >>> print(all([bm[i,1]+1 == bb[i].stop for i in range(3)]))
+            >>> # => True
+        """
+        return np.array([[sl.start, sl.stop-1] for sl in self.bbox(pad=pad)])
 
     @property
     def centroid(self):
         """
         Return the center of mass of the nodule as determined by its 
-        radiologist-drawn contours. Note that coordinates are image
-        domain coordinates (i.e., (i,j,k), not (x,y,z)).
+        radiologist-drawn contours.
+
+        Example:
+            >>> import pylidc as pl
+            >>> import matplotlib.pyplot as plt
+            >>>
+            >>> ann = pl.query(pl.Annotation).first()
+            >>> i,j,k = ann.centroid.round().astype(np.int)
+            >>> vol = ann.scan.to_volume()
+            >>>
+            >>> plt.imshow(vol[:,:,k], cmap=plt.cm.gray)
+            >>> plt.plot(j, i, '.r', label="Nodule centroid")
+            >>> plt.legend()
+            >>> plt.show()
         """
-        return self.contours_to_matrix().mean(axis=0)
+        return self.contours_matrix.mean(axis=0)
 
     @property
     def diameter(self):
@@ -318,13 +503,13 @@ class Annotation(Base):
         Estimate the surface area by summing the areas of a trianglation
         of the nodules surface in 3d. Returned units are mm^2.
         """
-        mask = self.get_boolean_mask()
+        mask = self.boolean_mask()
         mask = np.pad(mask, [(1,1), (1,1), (1,1)], 'constant') # Cap the ends.
-        dist = dtrans(mask) - dtrans(~mask)
+        mask = mask.astype(np.float)
 
-        rxy  = self.scan.pixel_spacing
-        rz   = self.scan.slice_thickness
-        verts, faces, _, _ = marching_cubes(dist, 0, spacing=(rxy, rxy, rz))
+        rij  = self.scan.pixel_spacing
+        rk   = self.scan.slice_thickness
+        verts, faces, _, _ = marching_cubes(mask, 0.5, spacing=(rij, rij, rk))
         return mesh_surface_area(verts, faces)
 
     @property
@@ -414,7 +599,7 @@ class Annotation(Base):
             if cmap not in plt.cm.cmap_d.keys():
                 raise ValueError("Invalid `cmap`. See `plt.cm.cmap_d.keys()`.")
 
-        mask = self.get_boolean_mask()
+        mask = self.boolean_mask()
         mask = np.pad(mask, [(1,1), (1,1), (1,1)], 'constant') # Cap the ends.
 
         rxy  = self.scan.pixel_spacing
@@ -449,9 +634,9 @@ class Annotation(Base):
         elif backend == 'mayavi':
             try:
                 from mayavi import mlab
-                sf = mlab.pipeline.scalar_field(dist)
+                sf = mlab.pipeline.scalar_field(mask.astype(np.float))
                 sf.spacing = [rxy, rxy, rz]
-                mlab.pipeline.iso_surface(sf, contours=[0.0])
+                mlab.pipeline.iso_surface(sf, contours=[0.5])
                 mlab.show()
             except ImportError:
                 print("Mayavi could not be imported. Is it installed?")
@@ -488,7 +673,7 @@ class Annotation(Base):
         # plots every time we update the image.
         for i,c in enumerate(contours):
             arr = c.to_matrix()
-            cc, = ax_image.plot(arr[:,0], arr[:,1], '-r')
+            cc, = ax_image.plot(arr[:,1], arr[:,0], '-r')
             cc.set_visible(i==0) # Set the first contour visible.
             contour_lines.append( cc )
         ax_image.set_xlim(-0.5,511.5); ax_image.set_ylim(511.5,-0.5)
@@ -589,67 +774,106 @@ class Annotation(Base):
 
         plt.show()
 
-    def contours_to_matrix(self, image_coords=True):
+    @property
+    def contour_slice_zvals(self):
+        """Returns an array of unique z-coordinates for the contours."""
+        return np.unique([c.image_z_position for c in self.contours])        
+
+    @property
+    def contour_slice_indices(self):
+        """
+        Returns a list of indices into the scan where each contour
+        belongs. An example should clarify:
+
+        >>> import pylidc as pl
+        >>>
+        >>> ann = pl.query(pl.Annotation)
+        >>>
+        >>> zvals = ann.contour_slice_zvals
+        >>> kvals = ann.contour_slice_indices
+        >>> scan_zvals = ann.scan.slice_zvals
+        >>> 
+        >>> for k,z in zip(kvals, zvals):
+        >>>     # the two z values should the same (up to machine precision)
+        >>>     print(k, z, scan_zvals[k]) 
+        """
+        slc = self.scan.slice_zvals
+        return [np.abs(slc-z).argmin() for z in self.contour_slice_zvals]
+
+    @property
+    def contours_matrix(self):
         """
         Return all the contours in a 3D numpy array.
+        """
+        return np.vstack([c.to_matrix(include_k=True)
+            for c in sorted(self.contours, key=lambda c: c.image_z_position)])
 
-        image_coords: bool, default True
-            If True, the first two coordinates of each point are given 
-            in image coordinates (i.e., 2d array index). If False, these 
-            values are scaled by the respective `pixel_spacing` attribute
-            of the Annotation's Scan.
+    def boolean_mask(self, pad=None, bbox=None):
         """
-        pts = np.vstack([c.to_matrix() for c in self.contours])
-        if not image_coords:
-            pts[:,:2] *= self.scan.pixel_spacing
-        return pts
-            
+        A boolean volume where 1 indicates nodule and 0 indicates
+        non-nodule. The `mask` volume covers the extent of the voxels
+        in the image volume given by `annotation.bbox`, i.e., the `mask`
+        volume would be placed in the full image volume according to
+        the `bbox` attribute.
 
-    def get_boolean_mask(self, return_bbox=False):
+        pad: int, list, or float, default=None
+            See `Annotation.bbox` for description of this argument.
+
+        bbox: 3x2 NumPy array, default=None
+            If `bbox` is provided, then `pad` is ignored. This argument allows
+            for more fine-tuned control of placement of the mask in a volume,
+            or for pre-computation of bbox when working with multiple 
+            Annotation object.
+
+        Example:
+            >>> import pylidc as pl
+            >>> import matplotlib.pyplot as plt
+            >>>
+            >>> ann = pl.query(pl.Annotation).first()
+            >>> vol = ann.scan.to_volume()
+            >>>
+            >>> mask = ann.boolean_mask()
+            >>> bbox = ann.bbox()
+            >>>
+            >>> print("Avg HU inside nodule: %.1f" % vol[bbox][mask].mean())
+            >>> # => Avg HU inside nodule: -280.0
+            >>> print("Avg HU outside nodule: %.1f" % vol[bbox][~mask].mean())
+            >>> # => Avg HU outside nodule: -732.2
         """
-        Return a boolean volume which corresponds to the bounding box 
-        containing the nodule annotation. The slices of the volume are 
-        ordered by increasing `image_z_position` of the contour 
-        annotations.
-        
-        Note that this method doesn't account for a case where the nodule 
-        contour annotations "skip a slice".
-        
-        returns: mask, bounding_box
-            `mask` is the boolean volume. In the original 
-            512 x 512 x num_slices dicom volume, `mask` is a boolean 
-            mask over the region, `bbox[i,0]:bbox[i,1]+1`, i=0,1,2
-        """
-        bbox = self.bbox(image_coords=False)
-        zs = np.unique([c.image_z_position for c in self.contours])
-        z_to_index = dict(zip(zs,range(len(zs))))
+        bb = self.bbox_matrix(pad=pad) if bbox is None else bbox
+
+        czs = self.contour_slice_zvals
+        cks = self.contour_slice_indices
+
+        zs = self.scan.slice_zvals
+        zs = zs[cks[0]:cks[-1]+1]
+
+        # Lambda to map a z-value to its appropriate index in the volume.
+        z_to_index = lambda z: dict(zip(czs,cks))[z] - bb[2,0]#cks[0]
 
         # Get dimensions, initialize mask.
-        nx,ny = np.diff(bbox[:2], axis=1).astype(int) + 1
-        nx = int(nx); ny = int(ny)
-        nz = int(zs.shape[0])
-        mask = np.zeros((nx,ny,nz), dtype=np.bool)
+        ni,nj,nk = np.diff(bb, axis=1).astype(int)[:,0] + 1
+        mask = np.zeros((ni,nj,nk), dtype=np.bool)
 
         # We check if these points are enclosed within each contour 
         # for a given slice. `test_points` is a list of image coordinate 
         # points, offset by the bounding box.
-        test_points = bbox[:2,0] + np.c_[ np.where(~mask[:,:,0]) ]
+        ii,jj = np.indices(mask.shape[:2])
+        test_points = bb[:2,0] + np.c_[ii.flatten(), jj.flatten()]
 
         # First we "turn on" pixels enclosed by inclusion contours.
         for contour in self.contours:
             if contour.inclusion:
-                zi = z_to_index[contour.image_z_position]
-                contour_matrix = contour.to_matrix()[:,:2]
+                zi = z_to_index(contour.image_z_position)
+                C  = contour.to_matrix(include_k=False)
 
                 # Turn the contour closed if it's not.
-                if (contour_matrix[0] != contour_matrix[-1]).any():
-                    contour_matrix = np.append(contour_matrix,
-                                               contour_matrix[0].reshape(1,2),
-                                               axis=0)
+                if (C[0] != C[-1]).any():
+                    C = np.append(C, c[0].reshape(1,2), axis=0)
 
                 # Create path object and test all pixels
                 # within the contour's bounding box.
-                path = mplpath.Path(contour_matrix, closed=True)
+                path = mplpath.Path(C, closed=True)
                 contains_pts = path.contains_points(test_points)
                 contains_pts = contains_pts.reshape(mask.shape[:2])
                 # The logical or here prevents the cases where a single
@@ -659,26 +883,19 @@ class Annotation(Base):
         # Second, we "turn off" pixels enclosed by exclusion contours.
         for contour in self.contours:
             if not contour.inclusion:
-                zi = z_to_index[contour.image_z_position]
-                contour_matrix = contour.to_matrix()[:,:2]
+                zi = z_to_index(contour.image_z_position)
+                C = contour.to_matrix(include_k=False)
 
                 # Turn the contour closed if it's not.
-                if (contour_matrix[0] != contour_matrix[-1]).any():
-                    contour_matrix = np.append(contour_matrix,
-                                               contour_matrix[0].reshape(1,2),
-                                               axis=0)
+                if (C[0] != C[-1]).any():
+                    C = np.append(C, C[0].reshape(1,2), axis=0)
 
-                path = mplpath.Path(contour_matrix, closed=True)
+                path = mplpath.Path(C, closed=True)
                 not_contains_pts = ~path.contains_points(test_points)
                 not_contains_pts = not_contains_pts.reshape(mask.shape[:2])
                 mask[:,:,zi] = np.logical_and(mask[:,:,zi], not_contains_pts)
 
-        # The first and second axes have to 
-        # be swapped because of the reshape.
-        if return_bbox:
-            return mask.swapaxes(0,1), bbox[[1,0,2]]
-        else:
-            return mask.swapaxes(0,1)
+        return mask
 
     def _as_set(self):
         """
@@ -773,8 +990,8 @@ class Annotation(Base):
             returned, depending on which flags are set (see above).
 
         Example:
-            >>> self = pl.query(pl.Annotation).first()
-            >>> ct_volume, mask = self.uniform_cubic_resample(side_length=70)
+            >>> ann = pl.query(pl.Annotation).first()
+            >>> ct_volume, mask = ann.uniform_cubic_resample(side_length=70)
             >>> print(ct_volume.shape, mask.shape)
             >>> # => (71, 71, 71), (71, 71, 71)
             >>> # (Nodule is centered at (35,35,35).)
@@ -783,8 +1000,8 @@ class Annotation(Base):
             >>> plt.imshow( ct_volume[:,:,35] * (0.2 + 0.8*mask[:,:,35]) )
             >>> plt.show()
         """
-        bbox  = self.bbox(image_coords=True)
-        bboxd = self.bbox_dimensions(image_coords=True)
+        bbox  = self.bbox
+        bboxd = self.bbox_dimensions
         rxy   = self.scan.pixel_spacing
 
         imin,imax = bbox[0].astype(int)
@@ -799,7 +1016,7 @@ class Annotation(Base):
             side_length = np.ceil(bboxd.max())
         else:
             if not isinstance(side_length, int):
-                raise ValueError('`side_length` must be an integer.')
+                raise TypeError('`side_length` must be an integer.')
             if side_length < bboxd.max():
                 raise ValueError('`side_length` must be greater\
                                    than any bounding box dimension.')
@@ -820,7 +1037,7 @@ class Annotation(Base):
         kmax = np.where(zmax == img_zs)[0][0]
 
         # Initialize the boolean mask.
-        mask = self.get_boolean_mask()
+        mask = self.boolean_mask()
 
         ########################################################
         # { Begin mask corrections.

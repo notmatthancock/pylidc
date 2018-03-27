@@ -32,7 +32,7 @@ setup(
     packages=find_packages(exclude=['contrib', 'doc', 'tests*']),
     install_requires=[
         'sqlalchemy>=1.1.5', 'numpy>=1.12.0', 'scipy>=0.18.1',
-        'matplotlib>=2.0.0', 'pydicom>=0.9.9', 'scikit-image>=0.13'
+        'matplotlib>=2.0.0', 'pydicom>=1.0.0', 'scikit-image>=0.13'
     ],
     package_data={
         'pylidc': ['pylidc.sqlite'],
