@@ -1,5 +1,8 @@
 import numpy as np
 from .Annotation import Annotation
+import matplotlib.pyplot as plt
+from skimage.measure import find_contours
+from matplotlib.widgets import Slider
 
 def consensus(anns, clevel=0.5, pad=None, ret_masks=True, verbose=True):
     """Return the boolean-valued consensus volume amongst the
@@ -59,3 +62,78 @@ def consensus(anns, clevel=0.5, pad=None, ret_masks=True, verbose=True):
         return cmask, cbbox, masks
     else:
         return cmask, cbbox
+
+def volume_viewer(vol, mask=None, **line_kwargs):
+    """
+    Interactive volume viewer utility
+
+    Parameters
+    ----------
+    vol: ndarray, ndim=3
+        An image volume.
+
+    mask: ndarray, ndim=3, dtype=bool
+        A boolean mask volume.
+
+    line_kwargs: args
+        Any keyword arguments that can be passed to `matplotlib.pyplot.plot`.
+
+    Example
+    -------
+    An example::
+
+        import pylidc as pl
+        from pylidc.utils import volume_viewer
+
+        ann = pl.query(pl.Annotation).first()
+        vol = ann.scan.to_volume()
+
+        padding = 70.0
+
+        mask = ann.boolean_mask(pad=padding)
+        bbox = ann.bbox(pad=padding)
+
+        volume_viewer(vol[bbox], mask, ls='-', lw=2, c='r')
+
+    """
+    assert vol.ndim
+    if mask is not None:
+        if mask.dtype != bool:
+            raise TypeError("mask was not bool type.")
+        if vol.shape != mask.shape:
+            raise ValueError("Shape mismatch between image volume and mask.")
+
+    k = int(0.5*vol.shape[2])
+
+    fig,ax = plt.subplots()
+    plt.subplots_adjust(left=0, bottom=0.25)
+    img = ax.imshow(vol[:,:,k], vmin=vol.min(), 
+                    vmax=vol.max(), cmap=plt.cm.gray)
+    ax.axis('off')
+
+    if mask is not None:
+        contours = []
+        for i in range(vol.shape[2]):
+            contour = []
+            for c in find_contours(mask[:,:,i].astype(np.float), 0.5):
+                line = ax.plot(c[:,1], c[:,0], **line_kwargs)[0]
+                line.set_visible(0)
+                contour.append(line)
+            contours.append(contour)
+
+    axslice = plt.axes([0.1, 0.1, 0.75, 0.03], facecolor='0.8')
+    sslice  = Slider(axslice, 'Slice', 0, vol.shape[2]-1,
+                     valinit=k, valstep=1)
+    
+    def update(i):
+        i = int(i)
+        img.set_data(vol[:,:,i])
+        if mask is not None:
+            for ic,contour in enumerate(contours):
+                for c in contours[ic]:
+                    c.set_visible(ic == i)
+        fig.canvas.draw_idle()
+    sslice.on_changed(update)
+
+    update(k)
+    plt.show()

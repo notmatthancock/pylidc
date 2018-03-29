@@ -40,7 +40,6 @@ from .Contour    import Contour
 from .Zval       import Zval
 
 from .Annotation import feature_names as annotation_feature_names
-from .utils import consensus
 
 def query(*args):
     """

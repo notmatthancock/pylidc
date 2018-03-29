@@ -1025,7 +1025,7 @@ class Annotation(Base):
 
                 # Turn the contour closed if it's not.
                 if (C[0] != C[-1]).any():
-                    C = np.append(C, c[0].reshape(1,2), axis=0)
+                    C = np.append(C, C[0].reshape(1,2), axis=0)
 
                 # Create path object and test all pixels
                 # within the contour's bounding box.
