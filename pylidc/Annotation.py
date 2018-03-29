@@ -49,41 +49,101 @@ class Annotation(Base):
     has many contours, each of which refers to the contour drawn for 
     nodule in each scan slice.  
 
-    Parameters
+    Attributes
     ----------
-    subtlety: int
-        blah
+    subtlety: int, range = {1,2,3,4,5}
+        Difficulty of detection. Higher values indicate easier detection.
 
-    internalStructure: int
-        blah
+        1. 'Extremely Subtle'
+        2. 'Moderately Subtle'
+        3. 'Fairly Subtle'
+        4. 'Moderately Obvious'
+        5. 'Obvious'
 
-    calcification: int
-        blah
+    internalStructure: int, range = {1,2,3,4}
+        Internal composition of the nodule.
 
-    sphericity: int
-        blah
+        1. 'Soft Tissue'
+        2. 'Fluid'
+        3. 'Fat'
+        4. 'Air'
 
-    margin: int
-        blah
+    calcification: int, range = {1,2,3,4,6}
+        Pattern of calcification, if present.
 
-    lobulation: int
-        blah
+        1. 'Popcorn'
+        2. 'Laminated'
+        3. 'Solid'
+        4. 'Non-central'
+        5. 'Central'
+        6. 'Absent'
 
-    spiculation: int
-        blah
+    sphericity: int, range = {1,2,3,4,5}
+        The three-dimensional shape of the nodule in terms of its roundness.
 
-    texture: int
-        blah
+        1. 'Linear'
+        2. 'Ovoid/Linear'
+        3. 'Ovoid'
+        4. 'Ovoid/Round'
+        5. 'Round'
 
-    malignancy: int
-        blah
+    margin: int, range = {1,2,3,4,5}
+        Description of how well-defined the nodule margin is.
+
+        1. 'Poorly Defined'
+        2. 'Near Poorly Defined'
+        3. 'Medium Margin'
+        4. 'Near Sharp'
+        5. 'Sharp'
+
+    lobulation: int, range = {1,2,3,4,5}
+        The degree of lobulation ranging from none to marked
+
+        1. 'No Lobulation'
+        2. 'Nearly No Lobulation'
+        3. 'Medium Lobulation'
+        4. 'Near Marked Lobulation'
+        5. 'Marked Lobulation'
+
+    spiculation: int, range = {1,2,3,4,5}
+        The extent of spiculation present.
+
+        1. 'No Spiculation'
+        2. 'Nearly No Spiculation'
+        3. 'Medium Spiculation'
+        4. 'Near Marked Spiculation'
+        5. 'Marked Spiculation'
+
+    texture: int, range = {1,2,3,4,5}
+        Radiographic solidity: internal texture (solid, ground glass, 
+        or mixed). 
+
+        1. 'Non-Solid/GGO'
+        2. 'Non-Solid/Mixed'
+        3. 'Part Solid/Mixed'
+        4. 'Solid/Mixed'
+        5. 'Solid'
+
+    malignancy: int, range = {1,2,3,4,5}
+        Subjective assessment of the likelihood of
+        malignancy, assuming the scan originated from a 60-year-old male 
+        smoker. 
+
+        1. 'Highly Unlikely'
+        2. 'Moderately Unlikely'
+        3. 'Indeterminate'
+        4. 'Moderately Suspicious'
+        5. 'Highly Suspicious'
 
     Example
-    ---------
-    ::
+    -------
+    A short usage example for the Annotation class::
+
         import pylidc as pl
+
         # Get the first annotation with spiculation value greater than 3.
-        ann = pl.query(pl.Annotation).filter(pl.Annotation.spiculation > 3).first()
+        ann = pl.query(pl.Annotation)\\
+                .filter(pl.Annotation.spiculation > 3).first()
         
         print(ann.spiculation)
         # => 4
@@ -93,14 +153,10 @@ class Annotation(Base):
         print(ann.Spiculation)
         # => Medium-High Spiculation
         
-        q = pl.query(pl.Annotation).join(pl.Scan)
-        q = q.filter(pl.Scan.slice_thickness <= 1,
-                     pl.Annotation.malignancy == 5)
-        print(q.count())
-        # => 58
-        
-        ann = q.first()
-        print("%.2f, %.2f, %.2f" % (ann.diameter, ann.surface_area, ann.volume))
+        ann = anns.first()
+        print("%.2f, %.2f, %.2f" % (ann.diameter,
+                                    ann.surface_area,
+                                    ann.volume))
         # => 17.98, 1221.40, 1033.70
     """
     __tablename__ = 'annotations'
@@ -133,9 +189,10 @@ class Annotation(Base):
 
     ####################################
     # { Begin semantic attribute functions
+
     @property
     def Subtlety(self):
-        """return subtlety value as string"""
+        """Semantic interpretation of `subtlety` value as string."""
         s = self.subtlety
         assert s in range(1,6), "Subtlety score out of bounds."
         if   s == 1: return 'Extremely Subtle'
@@ -146,7 +203,7 @@ class Annotation(Base):
 
     @property
     def InternalStructure(self):
-        """return internalStructure value as string"""
+        """Semantic interpretation of `internalStructure` value as string."""
         s = self.internalStructure
         assert s in range(1,5), "Internal structure score out of bounds."
         if   s == 1: return 'Soft Tissue'
@@ -156,7 +213,7 @@ class Annotation(Base):
 
     @property
     def Calcification(self):
-        """return calcification value as string"""
+        """Semantic interpretation of `calcification` value as string."""
         s = self.calcification
         assert s in range(1,7), "Calcification score out of bounds."
         if   s == 1: return 'Popcorn'
@@ -168,7 +225,7 @@ class Annotation(Base):
 
     @property
     def Sphericity(self):
-        """return sphericity value as string"""
+        """Semantic interpretation of `sphericity` value as string."""
         s = self.sphericity
         assert s in range(1,6), "Sphericity score out of bounds."
         if   s == 1: return 'Linear'
@@ -179,7 +236,7 @@ class Annotation(Base):
 
     @property
     def Margin(self):
-        """return margin value as string"""
+        """Semantic interpretation of `margin` value as string."""
         s = self.margin
         assert s in range(1,6), "Margin score out of bounds."
         if   s == 1: return 'Poorly Defined'
@@ -190,7 +247,7 @@ class Annotation(Base):
 
     @property
     def Lobulation(self):
-        """return lobulation value as string"""
+        """Semantic interpretation of `lobulation` value as string."""
         s = self.lobulation
         assert s in range(1,6), "Lobulation score out of bounds."
         if   s == 1: return 'No Lobulation'
@@ -201,7 +258,7 @@ class Annotation(Base):
 
     @property
     def Spiculation(self):
-        """return spiculation value as string"""
+        """Semantic interpretation of `spiculation` value as string."""
         s = self.spiculation
         assert s in range(1,6), "Spiculation score out of bounds."
         if   s == 1: return 'No Spiculation'
@@ -212,7 +269,7 @@ class Annotation(Base):
 
     @property
     def Texture(self):
-        """return texture value as string"""
+        """Semantic interpretation of `texture` value as string."""
         s = self.texture
         assert s in range(1,6), "Texture score out of bounds."
         if   s == 1: return 'Non-Solid/GGO'
@@ -223,7 +280,7 @@ class Annotation(Base):
 
     @property
     def Malignancy(self):
-        """return malignancy value as string"""
+        """Semantic interpretation of `malignancy` value as string."""
         s = self.malignancy
         assert s in range(1,6), "Malignancy score out of bounds."
         if   s == 1: return 'Highly Unlikely'
@@ -231,7 +288,6 @@ class Annotation(Base):
         elif s == 3: return 'Indeterminate'
         elif s == 4: return 'Moderately Suspicious'
         elif s == 5: return 'Highly Suspicious'
-
 
     # } End attribute functions
     ####################################
@@ -241,9 +297,19 @@ class Annotation(Base):
         Return all feature values as a numpy array in the order 
         presented in `feature_names`.
 
-        return_str: bool, default False
+        Parameters
+        ----------
+        return_str: bool, default=False
             If True, a list of strings is also returned, corresponding
             to the meaning of each numerical feature value.
+
+        Return
+        ------
+            fvals[, fstrs]: array[, list of strings]
+                `fvals` is an array of numerical values corresponding to the 
+                numerical feature values for the annotation. `fstrs` is a 
+                list of semantic string interpretations of the numerical 
+                values given in `fvals`.
         """
         fvals = np.array([getattr(self,f) for f in feature_names])
         if return_str:
@@ -256,7 +322,7 @@ class Annotation(Base):
 
     def print_formatted_feature_table(self):
         """
-        Return all feature values as a string table.
+        Print all feature values as a string table.
         """
         fnames = feature_names
         fvals, fstrings = self.feature_vals(True)
@@ -276,13 +342,14 @@ class Annotation(Base):
 
         Parameters
         ----------
-
         pad: int, list of ints, or float, default=None
             * If None (default), then no padding is used.
-            * If an integer is provided, then the slices are padded
+            * If an integer is provided, then the bounding box is padded
               uniformly by this integer amount.
-            * If a list of integers is provided, then it is of the form
-                  `[(i1,i2), (j1,j2), (k1,k2)]` 
+            * If a list of integers is provided, then it is of the form::
+
+                  [(i1,i2), (j1,j2), (k1,k2)]
+
               and indicates the pad amounts along each coordinate axis.
             * If a float is provided, then the slices are padded such
               that the bounding box occupies at least `pad` physical units
@@ -298,8 +365,16 @@ class Annotation(Base):
         to the maximum (or minimum, depending on the direction)
         possible index.
 
-        Examples
-        --------
+        Return
+        ------
+        bb: 3-tuple of Python `slice` objects.
+            `bb` is the corresponding bounding box (with desired padding) 
+            in the CT image volume. `bb[i]` is a slice corresponding
+            to the the extent of the bounding box along the 
+            coordinate axis `i`.
+
+        Example
+        -------
 
         The example below illustrates the various `pad` argument types::
 
@@ -403,14 +478,37 @@ class Annotation(Base):
 
     def bbox_dims(self, pad=None):
         """
-        Return the physical dimensions of the nodule bounding box in mm.
+        Return the physical dimensions of the nodule bounding box in 
+        millimeters along each coordinate axis.
 
+        Parameters
+        ----------
         pad: int, list, or float, default=None
             See :meth:`pylidc.Annotation.bbox` for a 
             description of this argument.
+
+        Return
+        ------
+        dims: ndarray, shape=(3,)
+            `dims[i]` is the length in millimeters of the bounding box along
+            the coordinate axis `i`.
+
+        Example
+        -------
+        An example where we compare the bounding box volume vs the nodule
+        volume::
+
+            import pylidc as pl
+
+            ann = pl.query(pl.Annotation).first()
+
+            print("%.2f mm^3, %.2f mm^3" % (ann.volume,
+                                            np.prod(ann.bbox_dims())))
+            # => 2439.30 mm^3, 5437.58 mm^3
         """
         res = [self.scan.pixel_spacing,]*2 + [self.scan.slice_spacing]
-        return [(b.stop-1-b.start)*r for r,b in zip(res, self.bbox(pad=pad))]
+        return np.array([(b.stop-1-b.start)*r 
+                            for r,b in zip(res, self.bbox(pad=pad))])
 
 
     def bbox_matrix(self, pad=None):
@@ -420,46 +518,71 @@ class Annotation(Base):
         a 3x2 matrix where each row is the (start, stop) indices of the
         i, j, and k axes.
 
+        Parameters
+        ----------
         pad: int, list, or float
-            See `Annotation.bbox` for description of this argument.
+            See :meth:`pylidc.Annotation.bbox` for a 
+            description of this argument.
 
-        NOTE: The indices return by `bbox_array` are *inclusive*, whereas
-              the indices of the slice objects in the tuple return by `bbox`
-              are offset by +1 in the "stop" index.
+        Note
+        ----
+        The indices return by `bbox_array` are *inclusive*, whereas
+        the indices of the slice objects in the tuple return by `bbox`
+        are offset by +1 in the "stop" index.
 
-        Example:
-            >>> import pylidc as pl
-            >>> ann = pl.query(pl.Annotation).first()
-            >>>
-            >>> bb = ann.bbox()
-            >>> bm = ann.bbox_matrix()
-            >>> 
-            >>> print(all([bm[i,0] == bb[i].start for i in range(3)]))
-            >>> # => True
-            >>> 
-            >>> print(all([bm[i,1]+1 == bb[i].stop for i in range(3)]))
-            >>> # => True
+        Return
+        ------
+        bb_mat: ndarray, shape=(3,2)
+            `bb_mat[i]` is the stop and start indices (inclusive) of the 
+            bounding box along coordinate axis `i`.
+
+        Example
+        -------
+        An example of the difference between `bbox` and `bbox_matrix`::
+
+            import pylidc as pl
+            ann = pl.query(pl.Annotation).first()
+            
+            bb = ann.bbox()
+            bm = ann.bbox_matrix()
+            
+            print(all([bm[i,0] == bb[i].start for i in range(3)]))
+            # => True
+            
+            print(all([bm[i,1]+1 == bb[i].stop for i in range(3)]))
+            # => True
         """
         return np.array([[sl.start, sl.stop-1] for sl in self.bbox(pad=pad)])
+
 
     @property
     def centroid(self):
         """
-        Return the center of mass of the nodule as determined by its 
+        The center of mass of the nodule as determined by its 
         radiologist-drawn contours.
 
-        Example:
-            >>> import pylidc as pl
-            >>> import matplotlib.pyplot as plt
-            >>>
-            >>> ann = pl.query(pl.Annotation).first()
-            >>> i,j,k = ann.centroid.round().astype(np.int)
-            >>> vol = ann.scan.to_volume()
-            >>>
-            >>> plt.imshow(vol[:,:,k], cmap=plt.cm.gray)
-            >>> plt.plot(j, i, '.r', label="Nodule centroid")
-            >>> plt.legend()
-            >>> plt.show()
+        Example
+        -------
+        An example of plotting the centroid on a CT image slice::
+
+            import pylidc as pl
+            import matplotlib.pyplot as plt
+            
+            ann = pl.query(pl.Annotation).first()
+            i,j,k = ann.centroid
+
+            vol = ann.scan.to_volume()
+            
+            plt.imshow(vol[:,:,int(k)], cmap=plt.cm.gray)
+            plt.plot(j, i, '.r', label="Nodule centroid")
+            plt.legend()
+            plt.show()
+
+        Return
+        ------
+        centr: ndarray, shape=(3,)
+            `centr[i]` is the average index value of all contour index values
+            for coordinate axis `i`.
         """
         return self.contours_matrix.mean(axis=0)
 
@@ -471,8 +594,10 @@ class Annotation(Base):
         where the diamter passes outside the boundary of the nodule, or 
         through cavities within the nodule.
         
-        returns: float (or float,Contour)
-            Returns the diameter as float, accounting for the axial-plane 
+        Return
+        ------
+        diam: float
+            The maximal diameter as float, accounting for the axial-plane 
             resolution of the scan. The units are mm.
         """
         greatest_diameter = -np.inf
@@ -502,6 +627,11 @@ class Annotation(Base):
         """
         Estimate the surface area by summing the areas of a trianglation
         of the nodules surface in 3d. Returned units are mm^2.
+
+        Return
+        ------
+        sa: float
+            The estimated surface area in squared millimeters.
         """
         mask = self.boolean_mask()
         mask = np.pad(mask, [(1,1), (1,1), (1,1)], 'constant') # Cap the ends.
@@ -532,8 +662,11 @@ class Annotation(Base):
         bottom, respectively. If the annotation only has one contour, we 
         use the `slice_thickness` attribute of the scan.
 
-        returns: float
-            The estimated 3D volume of the annotated nodule. Units are mm^3.
+        Return
+        ------
+        vol: float
+            The estimated 3D volume of the annotated nodule. Units are cubic
+            millimeters.
         """
         volume = 0.
         zvals  = np.unique([c.image_z_position for c in self.contours])
@@ -565,10 +698,12 @@ class Annotation(Base):
         return volume
 
     def visualize_in_3d(self, edgecolor='0.2', cmap='viridis',
-                        step=1, backend='matplotlib'):
+                        step=1, figsize=(5,5), backend='matplotlib'):
         """
         Visualize in 3d a triangulation of the nodule's surface.
 
+        Parameters
+        ----------
         edgecolor: string color or rgb 3-tuple
             Sets edgecolors of triangulation.
             Ignored if backend != matplotlib.
@@ -582,15 +717,20 @@ class Annotation(Base):
             The `step_size` parameter for the skimage marching_cubes function.
             Bigger values are quicker, but yield coarser surfaces.
 
+        figsize: tuple, default=(5,5)
+            Figure size for the displayed volume.
+
         backend: string
             The backend for visualization. Default is matplotlib.
             Execute `from pylidc.Annotation import viz3dbackends` to
             see available backends.
 
-        Example:
-            >>> ann = pl.query(pl.Annotation).first()
-            >>> ann.visualize_in_3d(edgecolor='green', cmap='autumn')
-            >>> ann.visualize_in_3d(backend='mayavi') # If mayavi available.
+        Example
+        -------
+        A short example::
+
+            ann = pl.query(pl.Annotation).first()
+            ann.visualize_in_3d(edgecolor='green', cmap='autumn')
         """
         if backend not in viz3dbackends:
             raise ValueError("backend should be in %s." % viz3dbackends)
@@ -599,19 +739,17 @@ class Annotation(Base):
             if cmap not in plt.cm.cmap_d.keys():
                 raise ValueError("Invalid `cmap`. See `plt.cm.cmap_d.keys()`.")
 
-        mask = self.boolean_mask()
-        mask = np.pad(mask, [(1,1), (1,1), (1,1)], 'constant') # Cap the ends.
+        # Pad to cap the ends for masks that hit the edge.
+        mask = self.boolean_mask(pad=[(1,1), (1,1), (1,1)]) 
 
-        rxy  = self.scan.pixel_spacing
-        rz   = self.scan.slice_thickness
+        rij  = self.scan.pixel_spacing
+        rk   = self.scan.slice_thickness
 
         if backend == 'matplotlib':
             verts, faces, _, _= marching_cubes(mask.astype(np.float), 0.5,
-                                               spacing=(rxy, rxy, rz),
+                                               spacing=(rij, rij, rk),
                                                step_size=step)
-            maxes = np.ceil(verts.max(axis=0))
-
-            fig = plt.figure()
+            fig = plt.figure(figsize=figsize)
             ax = fig.add_subplot(111, projection='3d')
 
             t = np.linspace(0, 1, faces.shape[0])
@@ -620,13 +758,16 @@ class Annotation(Base):
                                     facecolors=plt.cm.cmap_d[cmap](t))
             ax.add_collection3d(mesh)
 
-            ax.set_xlim(0, maxes[0])
+            ceil = max(self.bbox_dims(pad=[(1,1), (1,1), (1,1)]))
+            ceil = int(np.round(ceil))
+            
+            ax.set_xlim(0, ceil)
             ax.set_xlabel('length (mm)')
 
-            ax.set_ylim(0, maxes[1])
+            ax.set_ylim(0, ceil)
             ax.set_ylabel('length (mm)')
 
-            ax.set_zlim(0, maxes[2])
+            ax.set_zlim(0, ceil)
             ax.set_zlabel('length (mm)')
 
             plt.tight_layout()
@@ -635,7 +776,7 @@ class Annotation(Base):
             try:
                 from mayavi import mlab
                 sf = mlab.pipeline.scalar_field(mask.astype(np.float))
-                sf.spacing = [rxy, rxy, rz]
+                sf.spacing = [rij, rij, rk]
                 mlab.pipeline.iso_surface(sf, contours=[0.5])
                 mlab.show()
             except ImportError:
@@ -644,11 +785,19 @@ class Annotation(Base):
 
     def visualize_in_scan(self, verbose=True):
         """
-        Interactive visualization of the slices of the scan along with scan 
-        and annotation information. The visualization begins 
-        (but is not limited to) the first slice where the nodule occurs 
-        (according to the annotation). Contours are plotted atop the images 
-        for visualization and can be toggled on and off.
+        Engage an interactive visualization of the slices of the scan 
+        along with scan and annotation information.
+        
+        The visualization begins (but is not limited to) the first slice 
+        where the nodule occurs (according to the annotation). Annotation
+        contours are plotted on top of the images 
+        for visualization and can be toggled on and off, using an interactive 
+        check mark utility.
+
+        Parameters
+        ----------
+        verbose: bool, default=True
+            Turn the image loading statement on/off.
         """
         images = self.scan.load_all_dicom_images(verbose)
         
@@ -776,37 +925,37 @@ class Annotation(Base):
 
     @property
     def contour_slice_zvals(self):
-        """Returns an array of unique z-coordinates for the contours."""
-        return np.unique([c.image_z_position for c in self.contours])        
+        """An array of unique z-coordinates for the contours."""
+        return np.sort([c.image_z_position for c in self.contours])        
 
     @property
     def contour_slice_indices(self):
         """
-        Returns a list of indices into the scan where each contour
-        belongs. An example should clarify:
+        Returns an array of indices into the scan where each contour
+        belongs. An example should clarify::
 
-        >>> import pylidc as pl
-        >>>
-        >>> ann = pl.query(pl.Annotation)
-        >>>
-        >>> zvals = ann.contour_slice_zvals
-        >>> kvals = ann.contour_slice_indices
-        >>> scan_zvals = ann.scan.slice_zvals
-        >>> 
-        >>> for k,z in zip(kvals, zvals):
-        >>>     # the two z values should the same (up to machine precision)
-        >>>     print(k, z, scan_zvals[k]) 
+            import pylidc as pl
+            
+            ann = pl.query(pl.Annotation)
+            
+            zvals = ann.contour_slice_zvals
+            kvals = ann.contour_slice_indices
+            scan_zvals = ann.scan.slice_zvals
+            
+            for k,z in zip(kvals, zvals):
+                # the two z values should the same (up to machine precision)
+                print(k, z, scan_zvals[k]) 
         """
-        slc = self.scan.slice_zvals
-        return [np.abs(slc-z).argmin() for z in self.contour_slice_zvals]
+        return np.sort([c.image_k_position for c in self.contours])
 
     @property
     def contours_matrix(self):
         """
-        Return all the contours in a 3D numpy array.
+        All the contour index values a 3D numpy array.
         """
         return np.vstack([c.to_matrix(include_k=True)
-            for c in sorted(self.contours, key=lambda c: c.image_z_position)])
+                                for c in sorted(self.contours,
+                                        key=lambda c: c.image_z_position)])
 
     def boolean_mask(self, pad=None, bbox=None):
         """
@@ -816,8 +965,11 @@ class Annotation(Base):
         volume would be placed in the full image volume according to
         the `bbox` attribute.
 
+        Parameters
+        ----------
         pad: int, list, or float, default=None
-            See `Annotation.bbox` for description of this argument.
+            See :meth:`pylidc.Annotation.bbox` for a 
+            description of this argument.
 
         bbox: 3x2 NumPy array, default=None
             If `bbox` is provided, then `pad` is ignored. This argument allows
@@ -825,20 +977,24 @@ class Annotation(Base):
             or for pre-computation of bbox when working with multiple 
             Annotation object.
 
-        Example:
-            >>> import pylidc as pl
-            >>> import matplotlib.pyplot as plt
-            >>>
-            >>> ann = pl.query(pl.Annotation).first()
-            >>> vol = ann.scan.to_volume()
-            >>>
-            >>> mask = ann.boolean_mask()
-            >>> bbox = ann.bbox()
-            >>>
-            >>> print("Avg HU inside nodule: %.1f" % vol[bbox][mask].mean())
-            >>> # => Avg HU inside nodule: -280.0
-            >>> print("Avg HU outside nodule: %.1f" % vol[bbox][~mask].mean())
-            >>> # => Avg HU outside nodule: -732.2
+        Example
+        -------
+        An example::
+
+            import pylidc as pl
+            import matplotlib.pyplot as plt
+            
+            ann = pl.query(pl.Annotation).first()
+            vol = ann.scan.to_volume()
+            
+            mask = ann.boolean_mask()
+            bbox = ann.bbox()
+            
+            print("Avg HU inside nodule: %.1f" % vol[bbox][mask].mean())
+            # => Avg HU inside nodule: -280.0
+
+            print("Avg HU outside nodule: %.1f" % vol[bbox][~mask].mean())
+            # => Avg HU outside nodule: -732.2
         """
         bb = self.bbox_matrix(pad=pad) if bbox is None else bbox
 
@@ -954,8 +1110,15 @@ class Annotation(Base):
         specified `side_length`. Thus, the returned volumes have dimensions,
         `(side_length+1,)*3` (since `side_length` is the spacing).
 
+        TODO
+        ----
+        It would be nice if this function performed fully general 
+        interpolation, i.e., not necessarily uniform spacing and allowing 
+        different resample-resolutions along different coordinate axes.
 
-        side_length: integer, default None
+        Parameters
+        ----------
+        side_length: integer, default=None
             The physical length of each side of the new cubic 
             volume in millimeters. The default, `None`, takes the
             max of the nodule's bounding box dimensions.
@@ -966,7 +1129,7 @@ class Annotation(Base):
             out-of-bounds image index, then the image is padded with 
             the minimum CT image value.
 
-        resample_vol: boolean, default True
+        resample_vol: boolean, default=True
             If False, only the segmentation volume is resampled.
 
         irp_pts: 3-tuple from meshgrid
@@ -974,42 +1137,67 @@ class Annotation(Base):
             points, rather than the automatically calculated points. This allows
             for sampling segmentation volumes over a common coordinate-system.
 
-        return_irp_pts: boolean, default False
+        return_irp_pts: boolean, default=False
             If True, the interpolation points (ix,iy,iz) at which the volume(s)
             were resampled are returned. These can potentially be provided as
             an argument to `irp_pts` for separate selfotations that refer to the
             same nodule, allowing the segmentation volumes to be resampled in a
             common coordinate-system.
 
-        verbose: boolean, default True
+        verbose: boolean, default=True
             Turn the loading statement on / off.
 
-        returns: [ct_volume,] mask [, irp_pts]
+        Return
+        ------
+        [ct_volume,] mask [, irp_pts]: ndarray, ndarray, list of ndarrays
             `ct_volume` and `mask` are the resampled CT and boolean 
             volumes, respectively. `ct_volume` and `irp_points` are optionally
             returned, depending on which flags are set (see above).
 
-        Example:
-            >>> ann = pl.query(pl.Annotation).first()
-            >>> ct_volume, mask = ann.uniform_cubic_resample(side_length=70)
-            >>> print(ct_volume.shape, mask.shape)
-            >>> # => (71, 71, 71), (71, 71, 71)
-            >>> # (Nodule is centered at (35,35,35).)
-            >>>
-            >>> import matplotlib.pyplot as plt
-            >>> plt.imshow( ct_volume[:,:,35] * (0.2 + 0.8*mask[:,:,35]) )
-            >>> plt.show()
+        Example
+        -------
+        An example::
+
+            import numpy as np
+            import matplotlib.pyplot as plt
+            import pylidc as pl
+
+            ann = pl.query(pl.Annotation).first()
+
+            # resampled volumes will have uniform side length of 70mm and
+            # uniform voxel spacing of 1mm.
+            n = 70
+            vol,mask = ann.uniform_cubic_resample(n)
+
+
+            # Setup the plot.
+            img = plt.imshow(np.zeros((n+1, n+1)), 
+                             vmin=vol.min(), vmax=vol.max(),
+                             cmap=plt.cm.gray)
+
+
+            # View all the resampled image volume slices.
+            for i in range(n+1):
+                img.set_data(vol[:,:,i] * (mask[:,:,i]*0.6+0.2))
+
+                plt.title("%02d / %02d" % (i+1, n))
+                plt.pause(0.1)
+
         """
-        bbox  = self.bbox
-        bboxd = self.bbox_dimensions
-        rxy   = self.scan.pixel_spacing
+        bbox  = self.bbox_matrix()
+        bboxd = self.bbox_dims()
+        rij   = self.scan.pixel_spacing
+        rk    = self.scan.slice_spacing
 
-        imin,imax = bbox[0].astype(int)
-        jmin,jmax = bbox[1].astype(int)
+        imin,imax = bbox[0]
+        jmin,jmax = bbox[1]
+        kmin,kmax = bbox[2]
 
-        xmin,xmax = imin*rxy, imax*rxy
-        ymin,ymax = jmin*rxy, jmax*rxy
-        zmin,zmax = bbox[2]
+        xmin,xmax = imin*rij, imax*rij
+        ymin,ymax = jmin*rij, jmax*rij
+
+        zmin = self.scan.slice_zvals[kmin]
+        zmax = self.scan.slice_zvals[kmax]
 
         # { Begin input checks.
         if side_length is None:
@@ -1033,40 +1221,11 @@ class Annotation(Base):
 
         # Get the indices where the nodule stops and starts
         # with respect to the scan z values.
-        kmin = np.where(zmin == img_zs)[0][0]
-        kmax = np.where(zmax == img_zs)[0][0]
+        #kmin = np.where(zmin == img_zs)[0][0]
+        #kmax = np.where(zmax == img_zs)[0][0]
 
         # Initialize the boolean mask.
         mask = self.boolean_mask()
-
-        ########################################################
-        # { Begin mask corrections.
-
-        # This block handles the case where 
-        # the contour selfotations "skip a slice".
-        if mask.shape[2] != (kmax-kmin+1):
-            old_mask = mask.copy()
-            
-            # Create the new mask with appropriate z-length.
-            mask = np.zeros((old_mask.shape[0],
-                             old_mask.shape[1],
-                             kmax-kmin+1), dtype=np.bool)
-
-            # Map z's to an integer.
-            z_to_index = dict(zip(
-                            img_zs[kmin:kmax+1],
-                            range(img_zs[kmin:kmax+1].shape[0])
-                         ))
-
-            # Map each slice to its correct location.
-            for k in range(old_mask.shape[2]):
-                mask[:, :, z_to_index[contour_zs[k]] ] = old_mask[:,:,k]
-
-            # Get rid of the old one.
-            del old_mask
-
-        # } End mask corrections.
-        ########################################################
 
         ########################################################
         # { Begin interpolation grid creation.
@@ -1113,7 +1272,7 @@ class Annotation(Base):
         # then `ax` is the minimum possible index, 0. A similar
         # diagram helps with the `bx` index.
 
-        T = np.arange(0, 512)*rxy
+        T = np.arange(0, 512)*rij
 
         if xhat[0] <= 0:
             ax = 0
@@ -1163,7 +1322,7 @@ class Annotation(Base):
         # padding `mask`.
         padvals = [(imin-ax, bx-1-imax), # The `b` terms have a `+1` offset
                    (jmin-ay, by-1-jmax), # from being an index that is
-                   (kmin-az, bz-1-kmax)] # correct with the `-1` here.
+                   (kmin-az, bz-1-kmax)] # corrected with the `-1` here.
         mask = np.pad(mask, pad_width=padvals,
                       mode='constant', constant_values=False)
 

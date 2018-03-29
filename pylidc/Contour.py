@@ -10,9 +10,11 @@ _off_limits = ['id','annotation_id','annotation',
 
 class Contour(Base):
     """
-    The Contour class holds the coordinate data for the vertices of
-    a :class:`pylidc.Annotation` object for a single slice in the CT volume.
+    The Contour class holds the nodule boundary coordinate data of a 
+    :class:`pylidc.Annotation` object for a single slice in the CT volume.
 
+    Attributes
+    ----------
     inclusion: bool
         If True, the area inside the contour is included as part of 
         the nodule. If False, the area inside the contour is excluded 
@@ -20,11 +22,11 @@ class Contour(Base):
 
     image_z_position: float
         This is the `imageZposition` defined via the xml annnotations 
-        for this contour. It is the z-coordinate of dicom 
-        attribute, `(0020,0032)`.
+        for this contour. It is the z-coordinate of DICOM 
+        attribute (0020,0032).
     
     dicom_file_name: string
-        This is the name of the corresponding dicom file for the scan 
+        This is the name of the corresponding DICOM file for the scan 
         to which this contour belongs, having the same `image_z_position`.
 
     coords: string
@@ -33,18 +35,24 @@ class Contour(Base):
         `to_matrix` method, which returns a numpy array rather than 
         a string.
 
-    Example:
-        >>> import pylidc as pl
-        >>> import matplotlib.pyplot as plt
-        >>>
-        >>> ann = pl.query(pl.Annotation).first()
-        >>> vol = ann.scan.to_volume()
-        >>> ii,jj = ann.contours[0].to_matrix(include_k=False).T
-        >>> 
-        >>> plt.imshow(vol[:,:,46], cmap=plt.cm.gray)
-        >>> plt.plot(jj, ii, '-r', lw=1, label="Nodule Boundary")
-        >>> plt.legend()
-        >>> plt.show()
+    Example
+    -------
+    Plotting a contour on top of the image volume::
+
+        import pylidc as pl
+        import matplotlib.pyplot as plt
+        
+        ann = pl.query(pl.Annotation).first()
+        vol = ann.scan.to_volume()
+        con = ann.contours[3]
+        
+        k = con.image_k_position
+        ii,jj = ann.contours[3].to_matrix(include_k=False).T
+        
+        plt.imshow(vol[:,:,46], cmap=plt.cm.gray)
+        plt.plot(jj, ii, '-r', lw=1, label="Nodule Boundary")
+        plt.legend()
+        plt.show()
     """
     __tablename__    = 'contours'
     id               = sq.Column('id', sq.Integer, primary_key=True)
@@ -66,18 +74,30 @@ class Contour(Base):
         else:
             super(Contour,self).__setattr__(name,value)
 
+    @property
+    def image_k_position(self):
+        """
+        Similar to `Contour.image_z_position`, but returns the index
+        instead of the z coordinate value.
+
+        Note
+        ----
+        This index may not be unique if the `slice_zvals` of the respective
+        scan are not unique.
+        """
+        zs = self.annotation.scan.slice_zvals
+        k = np.abs(zs-self.image_z_position).argmin()
+        return k
+
     def to_matrix(self, include_k=True):
         """
         Return the contour-annotation coordinates as a matrix where 
         each row contains an (i,j,k) *index* coordinate into the image volume.
-        
+
+        Parameters
+        ----------
         include_k: bool, default=True
-            Set `include_k=False` to omit the `k` axis coordinate. In this 
-            case, each row of the returned matrix is an (i,j) *index* 
-            coordinate into the `k`th image. The index `k` can be 
-            recovered via:
-                z = contour.image_z_position
-                k = contour.annotation.contour_slice_indexes[z]
+            Set `include_k=False` to omit the `k` axis coordinate. 
         """
         # The reversal [::-1] is because the coordinates from the LIDC XML
         # are stored as (x,y), not (i,j).
@@ -86,10 +106,8 @@ class Contour(Base):
         if not include_k:
             return ij
         else:
-            k  = np.ones(ij.shape[0])
+            k  = np.ones(ij.shape[0])*self.image_k_position
             zs = self.annotation.contour_slice_zvals
-            kk = np.abs(zs-self.image_z_position).argmin()
-            k *= self.annotation.contour_slice_indices[kk]
             return np.c_[ij, k].astype(np.int)
     
 Annotation.contours = relationship('Contour',

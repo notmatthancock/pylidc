@@ -1,7 +1,4 @@
 """
-pylidc
---------------------------------------------------------
-
 Author: Matt Hancock, not.matt.hancock@gmail.com
 This python module implements an (ORM) object relational mapping 
 to an sqlite database containing the annotation information from 
@@ -23,7 +20,7 @@ For more information, see the model classes themselves.
 """
 from __future__ import print_function as _pf
 
-__version__ = '0.1.9'
+__version__ = '0.2.0'
 
 # Hidden stuff.
 import os as _os
@@ -51,21 +48,21 @@ def query(*args):
     
         import pylidc as pl
 
-        qu = pl.query(pl.Scan).filter(pl.Scan.slice_thickness <= 1.)
-        print qu.count()
+        scans = pl.query(pl.Scan).filter(pl.Scan.slice_thickness <= 1.)
+        print scans.count()
         # => 97
 
-        scan = qu.first()
+        scan = scans.first()
         print(len(scan.annotations))
         # => 11
 
-        qu = pl.query(pl.Annotation).filter(pl.Annotation.malignancy > 3,
-                                            pl.Annotation.spiculation < 3)
-        print(qu.count())
+        anns = pl.query(pl.Annotation).filter(pl.Annotation.malignancy > 3,
+                                              pl.Annotation.spiculation < 3)
+        print(anns.count())
         # => 1083
 
-        annotation = qu.first()
-        print(annotation.volume)
+        ann = anns.first()
+        print(ann.volume)
         # => 5230.33874999
     """
     return _session.query(*args)

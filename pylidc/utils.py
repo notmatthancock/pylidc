@@ -2,11 +2,12 @@ import numpy as np
 from .Annotation import Annotation
 
 def consensus(anns, clevel=0.5, pad=None, ret_masks=True, verbose=True):
-    """
-    Return the boolean-valued consensus volume amongst the
+    """Return the boolean-valued consensus volume amongst the
     provided annotations (`anns`) at a particular consensus level
     (`clevel`).
 
+    Parameters
+    ----------
     anns: list of `pylidc.Annotation` objects
         This list should be probably be one of the lists
         returned by the `pylidc.Scan.cluster_annotations`
@@ -30,7 +31,9 @@ def consensus(anns, clevel=0.5, pad=None, ret_masks=True, verbose=True):
     verbose: bool, default=True
         Turns the DICOM image loading message on/off.
 
-    returns: consensus_mask, consensus_bbox[, masks]
+    Returns
+    -------
+    consensus_mask, consensus_bbox[, masks]: (ndarray, tuple[, list])
         `consensus_mask` is the boolean-valued volume of the annotation
         masks at `clevel` consensus. `consensus_bbox` is a 3-tuple of 
         slices that can be used to index into the image volume at the 
