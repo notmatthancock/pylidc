@@ -93,7 +93,7 @@ def volume_viewer(vol, mask=None, **line_kwargs):
         volume_viewer(vol[bbox], mask, ls='-', lw=2, c='r')
 
     """
-    assert vol.ndim
+    assert vol.ndim == 3
     if mask is not None:
         if mask.dtype != bool:
             raise TypeError("mask was not bool type.")
@@ -102,33 +102,35 @@ def volume_viewer(vol, mask=None, **line_kwargs):
 
     k = int(0.5*vol.shape[2])
 
-    fig,ax = plt.subplots()
-    plt.subplots_adjust(left=0, bottom=0.25)
-    img = ax.imshow(vol[:,:,k], vmin=vol.min(), 
-                    vmax=vol.max(), cmap=plt.cm.gray)
-    ax.axis('off')
+    fig = plt.figure(figsize=(6,6))
+    aximg = fig.add_axes([0.1,0.2,0.8,0.8])
+    img = aximg.imshow(vol[:,:,k], vmin=vol.min(), 
+                       vmax=vol.max(), cmap=plt.cm.gray)
+    aximg.axis('off')
 
     if mask is not None:
         contours = []
         for i in range(vol.shape[2]):
             contour = []
             for c in find_contours(mask[:,:,i].astype(np.float), 0.5):
-                line = ax.plot(c[:,1], c[:,0], **line_kwargs)[0]
+                line = aximg.plot(c[:,1], c[:,0], **line_kwargs)[0]
                 line.set_visible(0)
                 contour.append(line)
             contours.append(contour)
 
-    axslice = plt.axes([0.1, 0.1, 0.75, 0.03], facecolor='0.8')
+    axslice = fig.add_axes([0.1, 0.1, 0.8, 0.05])
+    axslice.set_facecolor('w')
+
     sslice  = Slider(axslice, 'Slice', 0, vol.shape[2]-1,
                      valinit=k, valstep=1)
     
     def update(i):
-        i = int(i)
-        img.set_data(vol[:,:,i])
+        img.set_data(vol[:,:,int(i)])
+        sslice.label.set_text('%d'%i)
         if mask is not None:
             for ic,contour in enumerate(contours):
                 for c in contours[ic]:
-                    c.set_visible(ic == i)
+                    c.set_visible(ic == int(i))
         fig.canvas.draw_idle()
     sslice.on_changed(update)
 

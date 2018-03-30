@@ -901,7 +901,8 @@ class Annotation(Base):
             # Update image itself.
             current_slice = int(sslice.val)
             img.set_data(images[current_slice].pixel_array)
-            txt='Z: %.3f'%float(images[current_slice].ImagePositionPatient[-1])
+            txt = 'Z: %.3f'
+            txt = txt % float(images[current_slice].ImagePositionPatient[-1])
             sslice.label.set_text(txt)
             if contour_checkbox.is_checked:
                 for i,c in enumerate(contour_lines):
