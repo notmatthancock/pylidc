@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from skimage.measure import find_contours
 from matplotlib.widgets import Slider
 
-def consensus(anns, clevel=0.5, pad=None, ret_masks=True, verbose=True):
+def consensus(anns, clevel=0.5, pad=None, ret_masks=True):
     """Return the boolean-valued consensus volume amongst the
     provided annotations (`anns`) at a particular consensus level
     (`clevel`).
@@ -30,9 +30,6 @@ def consensus(anns, clevel=0.5, pad=None, ret_masks=True, verbose=True):
         all the annotations. Note that this slightly different than calling
         `boolean_mask` on each respective Annotation object because these 
         volumes will be the same shape and in a common reference frame.
-
-    verbose: bool, default=True
-        Turns the DICOM image loading message on/off.
 
     Returns
     -------
