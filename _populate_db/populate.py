@@ -1,18 +1,57 @@
 import os, sys, re
 import numpy as np
 from xml.etree import ElementTree
-import dicom
+try:
+    import dicom
+except ImportError:
+    import pydicom
 
 assert not os.path.exists(os.path.join(os.path.pardir, 'pylidc.sqlite')), "`pylidc.sqlite` already exists. Aborting."
 
+def getSettings():
+    # Load the configuration file and get the dicom file path.
+    try:
+        import configparser
+    except ImportError:
+        import ConfigParser
+        configparser = ConfigParser
+
+    cfgname   = 'pylidc.conf' if os.name == 'nt' else '.pylidcrc'
+    cfgpath   = os.path.join(os.path.expanduser('~'), cfgname)
+    dicompath = None
+    warndpath = True
+    xmlpath = None
+
+    if os.path.exists(cfgpath):
+        cp = configparser.SafeConfigParser()
+        cp.read(cfgpath)
+
+        if cp.has_option('dicom', 'path'):
+            dicompath = cp.get('dicom', 'path')
+
+        if cp.has_option('dicom', 'warn'):
+            warndpath = cp.get('dicom', 'warn') == 'True'
+
+        if cp.has_option('xml', 'path'):
+            xmlpath = cp.get('xml', 'path')
+
+    if dicompath is None or xmlpath is None:
+        print("ERROR: Paths to DICOM and XML are required in .pylidcrc\n")
+        print("Example .pylidc content:")
+        print("  [dicom]")
+        print("  path = /Users/joe/Documents/TCIA/LIDC-IDRI")
+        print("  warn = True")
+        print("  [xml]")
+        print("  path = /Users/joe/Documents/TCIA/tcia-lidc-xml")
+
+    return {"dicom/path":dicompath, "dicom/warn":warndpath, "xml/path":xmlpath}
 
 # Change these. The dicom path should end with `LIDC-IDRI`, and the xml path should end with `tcia-lidc-xml`.
-dicom_root_path = '/media/matt/fatty/Data/LIDC-IDRI'
+settings = getSettings()
+dicom_root_path = settings["dicom/path"]
 # The 161-resubmitted-... file should replace the 161.xml file in this directory. I replace it by overwriting 161.xml while taking the name 161.xml. I'm not sure if this makes a difference.
-xml_root_path = '/home/matt/Downloads/tcia-lidc-xml'
+xml_root_path = settings["xml/path"]
 os.listdir(xml_root_path)
-
-
 
 
 #################################################################
@@ -40,7 +79,7 @@ characteristic_names =\
 'spiculation',
 'texture',
 'malignancy']
-  
+
 xml_paths = np.load(os.path.join(os.path.curdir,'metadata','xml_paths.pkl'))
 init_ids  = np.load(os.path.join(os.path.curdir,'metadata','initial_release_ids.pkl'))
 tcia_ids  = np.load(os.path.join(os.path.curdir,'metadata','tcia_ids.pkl'))
@@ -72,7 +111,7 @@ for count,xml_base_path in enumerate(xml_paths):
     series_instance_uid = xml_tree.find('ResponseHeader').find('SeriesInstanceUid').text
 
     # Load the dicom images into memory.
-    dcm_path = os.path.join(dicom_root_path, tcia_ids[xml_base_path], study_instance_uid, series_instance_uid) 
+    dcm_path = os.path.join(dicom_root_path, tcia_ids[xml_base_path], study_instance_uid, series_instance_uid)
     dcm_file_paths = os.listdir(dcm_path)
     dcm_imgs = [load_dcm(os.path.join(dcm_path,dcm_file_path)) for dcm_file_path in dcm_file_paths if dcm_file_path.endswith('.dcm')]
 
@@ -137,7 +176,7 @@ for count,xml_base_path in enumerate(xml_paths):
                     break
             if bad_annotation:
                 continue
-            
+
             # Ok, now we know that this a large class nodule annotation.
             annotation = pl.Annotation(_nodule_id=ann.find('noduleID').text)
             for char_name in characteristic_names:
@@ -147,14 +186,14 @@ for count,xml_base_path in enumerate(xml_paths):
             annotation.contours = []
             rois = ann.findall('roi')
             for roi in rois:
-                # If the ROI only has a single edgemap, 
+                # If the ROI only has a single edgemap,
                 # this means the "contour" is just a single dot,
                 # which we consider a stray mark and therefore, ignore.
                 if len(roi.findall('edgeMap')) <= 1:
                     continue
                 # The coords line looks cryptic, but all we're doing is taking all the edgmaps and putting
                 # them into a single string with x,y points separated by a newline.
-                z_pos = float(roi.find('imageZposition').text) 
+                z_pos = float(roi.find('imageZposition').text)
                 contour = pl.Contour(
                     image_z_position = z_pos,
                     dicom_file_name  = z_to_dcm_path[ z_pos ],
