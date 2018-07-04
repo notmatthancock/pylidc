@@ -64,11 +64,6 @@ import pylidc as pl
 # This line actually creates the database, `pylidc.db`.
 pl._Base.Base.metadata.create_all(pl._engine)
 
-# Add the dicom path as a configuration, so that the path to
-# dicom files persists across session. This is done so we can write
-# functions for visualizing annotations on top of CT data.
-pl._session.add(pl._Configuration(key='path_to_dicom_files', value=dicom_root_path))
-
 characteristic_names =\
 ['subtlety',
 'internalStructure',
