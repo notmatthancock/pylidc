@@ -8,7 +8,7 @@ except ImportError:
 
 assert not os.path.exists(os.path.join(os.path.pardir, 'pylidc.sqlite')), "`pylidc.sqlite` already exists. Aborting."
 
-def getSettings():
+def get_settings():
     # Load the configuration file and get the dicom file path.
     try:
         import configparser
@@ -47,7 +47,7 @@ def getSettings():
     return {"dicom/path":dicompath, "dicom/warn":warndpath, "xml/path":xmlpath}
 
 # Change these. The dicom path should end with `LIDC-IDRI`, and the xml path should end with `tcia-lidc-xml`.
-settings = getSettings()
+settings = get_settings()
 dicom_root_path = settings["dicom/path"]
 # The 161-resubmitted-... file should replace the 161.xml file in this directory. I replace it by overwriting 161.xml while taking the name 161.xml. I'm not sure if this makes a difference.
 xml_root_path = settings["xml/path"]
