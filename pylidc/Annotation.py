@@ -904,15 +904,17 @@ class Annotation(Base):
             txt = 'Z: %.3f'
             txt = txt % float(images[current_slice].ImagePositionPatient[-1])
             sslice.label.set_text(txt)
+
             if contour_checkbox.is_checked:
                 for i,c in enumerate(contour_lines):
-                    flag = (index_of_contour[i] == current_slice)
-                    flag = flag and (current_slice >= min_slice)
-                    flag = flag and (current_slice <= max_slice)
+                    flag = ((index_of_contour[i] == current_slice) and 
+                            (current_slice >= min_slice) and
+                            (current_slice <= max_slice))
                     # Set contour visible if flag is True.
                     c.set_visible(flag)
             else:
                 for c in contour_lines: c.set_visible(False)
+
             fig.canvas.draw_idle()
 
         def update_contours(_):

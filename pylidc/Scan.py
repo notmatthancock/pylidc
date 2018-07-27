@@ -569,6 +569,7 @@ class Scan(Base):
         sslice.on_changed(update)
         update(None)
         plt.show()
+        return sslice
 
     @property
     def slice_zvals(self):
@@ -593,6 +594,16 @@ class Scan(Base):
         slices are spaced with spacing (although they often are).
         """
         return np.median(np.diff(self.slice_zvals))
+
+    @property
+    def spacings(self):
+        """
+        The spacings in the i, j, k image coordinate directions, as a 
+        length 3 array.
+        """
+        return np.array([self.pixel_spacing,
+                         self.pixel_spacing,
+                         self.slice_spacing])
 
     def to_volume(self, verbose=True):
         """
