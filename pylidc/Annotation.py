@@ -1061,6 +1061,11 @@ class Annotation(Base):
                 not_contains_pts = not_contains_pts.reshape(mask.shape[:2])
                 mask[:,:,zi] = np.logical_and(mask[:,:,zi], not_contains_pts)
 
+                # Remove the contour points themselves.
+                i, j = (C - bb[:2,0]).T
+                k = np.ones(C.shape[0], dtype=np.int)*zi
+                mask[i,j,k] = False
+
         return mask
 
     def _as_set(self):
