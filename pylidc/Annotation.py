@@ -960,7 +960,7 @@ class Annotation(Base):
                                 for c in sorted(self.contours,
                                         key=lambda c: c.image_z_position)])
 
-    def boolean_mask(self, pad=None, bbox=None):
+    def boolean_mask(self, pad=None, bbox=None, include_contour_points=False):
         """
         A boolean volume where 1 indicates nodule and 0 indicates
         non-nodule. The `mask` volume covers the extent of the voxels
@@ -1026,7 +1026,7 @@ class Annotation(Base):
                 zi = z_to_index(contour.image_z_position)
                 C  = contour.to_matrix(include_k=False)
 
-                # Turn the contour closed if it's not.
+                # Turn the contour closed if it is not.
                 if (C[0] != C[-1]).any():
                     C = np.append(C, C[0].reshape(1,2), axis=0)
 
@@ -1035,9 +1035,16 @@ class Annotation(Base):
                 path = mplpath.Path(C, closed=True)
                 contains_pts = path.contains_points(test_points)
                 contains_pts = contains_pts.reshape(mask.shape[:2])
+
                 # The logical or here prevents the cases where a single
                 # slice contains multiple inclusion regions.
                 mask[:,:,zi] = np.logical_or(mask[:,:,zi], contains_pts)
+
+                if not include_contour_points:
+                    # Remove the contour points themselves.
+                    i, j = (C - bb[:2,0]).T
+                    k = np.ones(C.shape[0], dtype=np.int)*zi
+                    mask[i,j,k] = False
 
         # Second, we "turn off" pixels enclosed by exclusion contours.
         for contour in self.contours:
@@ -1045,7 +1052,7 @@ class Annotation(Base):
                 zi = z_to_index(contour.image_z_position)
                 C = contour.to_matrix(include_k=False)
 
-                # Turn the contour closed if it's not.
+                # Turn the contour closed if it is not.
                 if (C[0] != C[-1]).any():
                     C = np.append(C, C[0].reshape(1,2), axis=0)
 
@@ -1053,6 +1060,11 @@ class Annotation(Base):
                 not_contains_pts = ~path.contains_points(test_points)
                 not_contains_pts = not_contains_pts.reshape(mask.shape[:2])
                 mask[:,:,zi] = np.logical_and(mask[:,:,zi], not_contains_pts)
+
+                # Remove the contour points themselves.
+                i, j = (C - bb[:2,0]).T
+                k = np.ones(C.shape[0], dtype=np.int)*zi
+                mask[i,j,k] = False
 
         return mask
 
