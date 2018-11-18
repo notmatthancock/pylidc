@@ -19,7 +19,8 @@ from scipy.spatial.distance import pdist,squareform
 from scipy.interpolate import RegularGridInterpolator
 
 # For 3D visualizer.
-from skimage.measure import marching_cubes, mesh_surface_area
+from skimage.measure import mesh_surface_area
+from skimage.measure import marching_cubes_lewiner as marching_cubes
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.spatial import Delaunay
