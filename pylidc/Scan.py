@@ -1,12 +1,15 @@
+import os
+import sys
+import warnings
+
+import pydicom as dicom
+import numpy as np
+
 import sqlalchemy as sq
 from sqlalchemy.orm import relationship
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from ._Base import Base
-
-import os, warnings
-import pydicom as dicom
-import numpy as np
 
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, CheckButtons
@@ -17,8 +20,6 @@ from .annotation_distance_metrics import metrics
 
 from scipy.stats import mode
 
-
-# Load the configuration file and get the dicom file path.
 try:
     import configparser
 except ImportError:
@@ -26,37 +27,58 @@ except ImportError:
     configparser = ConfigParser
 
 
-cfgname   = 'pylidc.conf' if os.name == 'nt' else '.pylidcrc'
-cfgpath   = os.path.join(os.path.expanduser('~'), cfgname)
-dicompath = None
-warndpath = True
+def _get_config_filename():
+    """
+    Yields the platform-specific configuration filename
+    """
+    return 'pylidc.conf' if sys.platform.startswith('win') else '.pylidcrc'
 
-if os.path.exists(cfgpath):
-    cp = configparser.SafeConfigParser()
-    cp.read(cfgpath)
 
-    if cp.has_option('dicom', 'path'):
-        dicompath = cp.get('dicom', 'path')
+def _get_config_path():
+    """
+    Yields the path to configuration file
+    """
+    return os.path.join(os.path.expanduser('~'))
 
-    if cp.has_option('dicom', 'warn'):
-        warndpath = cp.get('dicom', 'warn') == 'True'
 
-if dicompath is None:
-    dpath_msg = \
-    '\n\n`.pylidcrc` configuration file does not exist ' +  \
-    'or path is not set. CT images will not be viewable.\n' + \
-    ('The file, `.pylidcrc`, should exist in %s. '%os.path.expanduser('~')) + \
-    'This file should have format:\n\n' + \
-    '[dicom]\n' + \
-    'path = /path/to/dicom/data/LIDC-IDRI\n' + \
-    'warn = True\n\n' + \
-    'Set `warn` to `False` to suppress this message.\n'
-    if warndpath:
-        warnings.warn(dpath_msg)
+def _get_config_file():
+    return os.path.join(_get_config_path(),
+                        _get_config_filename())
+
+
+def _get_dicom_file_path_from_config_file():
+    """
+    Loads the dicom section of the configuration file
+    """
+    conf_file = _get_config_file()
+
+    parser = configparser.SafeConfigParser()
+
+    if os.path.exists(conf_file):
+        parser.read(conf_file)
+        
+    try:
+        return parser.get(section='dicom', option='path')
+    except (configparser.NoSectionError,
+            configparser.NoOptionError):
+        msg = ("Could not find `dicom` configuration section or "
+               " `path` configuration option under that section."
+               "A template config file will be written to {}.")
+        warnings.warn(msg.format(conf_file))
+
+        parser.add_section('dicom')
+        parser.set('dicom', 'path', '')
+
+        with open(conf_file, 'w') as f:
+            parser.write(f)
+
+        return parser.get(section='dicom', option='path')
+
 
 _off_limits = ['id','study_instance_uid','series_instance_uid',
                'patient_id','slice_thickness','pixel_spacing',
                'contrast_used','is_from_initial','sorted_dicom_file_names']
+
 
 class Scan(Base):
     """
@@ -153,7 +175,7 @@ class Scan(Base):
                    `%s` a value of `%s`." % (name,value)
             raise ValueError(msg)
         else:
-            super(Scan,self).__setattr__(name,value)
+            super(Scan, self).__setattr__(name,value)
     
     def get_path_to_dicom_files(self):
         """
@@ -184,14 +206,19 @@ class Scan(Base):
 
         Option 2 is less efficient than 1; however, option 2 is robust.
         """
-        if dicompath is None:
-            raise EnvironmentError(dpath_msg)
+        dicompath = _get_dicom_file_path_from_config_file()
+
+        if not os.path.exists(dicompath):
+            msg = ("Could not establish path to dicom files. Have you "
+                   "specified the `path` option in the configuration "
+                   "file {}?")
+            raise RuntimeError(msg.format(_get_config_file()))
 
         base = os.path.join(dicompath, self.patient_id)
 
         if not os.path.exists(base):
-            raise IOError("Couldn't find DICOM files for %s in %s."
-                          % (self, base))
+            msg = "Couldn't find DICOM files for {} in {}"
+            raise RuntimeError(msg.format(self, base))
 
         path = os.path.join(base,
                             self.study_instance_uid,
