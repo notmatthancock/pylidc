@@ -20,7 +20,7 @@ For more information, see the model classes themselves.
 """
 from __future__ import print_function as _pf
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 
 # Hidden stuff.
 import os as _os
@@ -34,7 +34,6 @@ _session = _sessionmaker(bind=_engine)()
 
 # Public stuff.
 from .Scan       import Scan
-from .Scan       import dicompath
 from .Annotation import Annotation
 from .Contour    import Contour
 from .Zval       import Zval
