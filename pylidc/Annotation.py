@@ -842,7 +842,7 @@ class Annotation(Base):
         )
         # Remove the cell borders.
         # It Seems like there should be an easier way to do this...
-        for cell in scan_info_table.properties()['child_artists']:
+        for cell in scan_info_table.properties()['children']:
             cell.set_color('w')
 
         ax_scan_info.set_title('Scan Info')
@@ -873,7 +873,7 @@ class Annotation(Base):
         )
 
         # Again, remove cell borders.
-        for cell in annotation_info_table.properties()['child_artists']:
+        for cell in annotation_info_table.properties()['children']:
             cell.set_color('w')
 
         ax_annotation_info.set_title('Annotation Info')
