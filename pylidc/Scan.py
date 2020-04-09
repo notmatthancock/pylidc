@@ -277,9 +277,9 @@ class Scan(Base):
 
             images = scan.load_all_dicom_images()
             zs = [float(img.ImagePositionPatient[2]) for img in images]
-            print(zs[1] - zs[0], img.SliceThickness, scan.slice_thickness)
+            print(zs[1] - zs[0], images[0].SliceThickness, scan.slice_thickness)
             
-            plt.imshow( images[0].pixel_array, cmap=plt.cm.gray )
+            plt.imshow(images[0].pixel_array, cmap=plt.cm.gray)
             plt.show()
 
         """
