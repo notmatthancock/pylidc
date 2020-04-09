@@ -830,13 +830,16 @@ class Annotation(Base):
         ax_image.axis('off')
         
         # Add the scan info table
-        ax_scan_info = fig.add_axes([0.1, 0.8, 0.3, 0.1])
+        ax_scan_info = fig.add_axes([0.1, 0.76, 0.3, 0.15])
         ax_scan_info.set_facecolor('w')
         scan_info_table = ax_scan_info.table(
             cellText=[
                 ['Patient ID:', self.scan.patient_id],
                 ['Slice thickness:', '%.3f mm' % self.scan.slice_thickness],
-                ['Pixel spacing:', '%.3f mm'%self.scan.pixel_spacing]
+                ['Pixel spacing:', '%.3f mm'%self.scan.pixel_spacing],
+                ['Manufacturer:', images[current_slice].Manufacturer],
+                ['Model name:', images[current_slice].ManufacturerModelName],
+                ['Convolution kernel:', images[current_slice].ConvolutionKernel],
             ],
             loc='center', cellLoc='left'
         )
