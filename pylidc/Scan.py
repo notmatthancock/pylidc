@@ -638,7 +638,11 @@ class Scan(Base):
         """
         images = self.load_all_dicom_images(verbose=verbose)
 
-        volume = np.zeros((512,512,len(images)))
-        for i in range(len(images)):
-           volume[:,:,i] = images[i].pixel_array
+        volume = np.stack(
+            [
+                x.pixel_array * x.RescaleSlope + x.RescaleIntercept
+                for x in images
+            ],
+            axis=-1,
+        ).astype(np.int16)
         return volume
