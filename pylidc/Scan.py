@@ -637,11 +637,12 @@ class Scan(Base):
         Return the scan as a 3D numpy array volume.
         """
         images = self.load_all_dicom_images(verbose=verbose)
-        rescale_slope = images[0].RescaleSlope
-        rescale_intercept = images[0].RescaleIntercept
 
-        volume = np.zeros((512,512,len(images)))
-        for i in range(len(images)):
-            img = images[i].pixel_array * rescale_slope + rescale_intercept
-            volume[:,:,i] = img
+        volume = np.stack(
+            [
+                x.pixel_array * x.RescaleSlope + x.RescaleIntercept
+                for x in images
+            ],
+            axis=-1,
+        ).astype(np.int16)
         return volume
