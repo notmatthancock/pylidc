@@ -277,9 +277,9 @@ class Scan(Base):
 
             images = scan.load_all_dicom_images()
             zs = [float(img.ImagePositionPatient[2]) for img in images]
-            print(zs[1] - zs[0], img.SliceThickness, scan.slice_thickness)
+            print(zs[1] - zs[0], images[0].SliceThickness, scan.slice_thickness)
             
-            plt.imshow( images[0].pixel_array, cmap=plt.cm.gray )
+            plt.imshow(images[0].pixel_array, cmap=plt.cm.gray)
             plt.show()
 
         """
@@ -539,7 +539,7 @@ class Scan(Base):
             loc='center', cellLoc='left'
         )
         # Remove the table cell borders.
-        for cell in scan_info_table.properties()['child_artists']:
+        for cell in scan_info_table.properties()['children']:
             cell.set_color('w')
         # Add title, remove ticks from scan info.
         ax_scan_info.set_title('Scan Info')
@@ -561,7 +561,7 @@ class Scan(Base):
             ann_grps_table = ax_ann_grps.table(cellText=txt, loc='center',
                                                cellLoc='left')
             # Remove cell borders.
-            for cell in ann_grps_table.properties()['child_artists']:
+            for cell in ann_grps_table.properties()['children']:
                 cell.set_color('w')
             # Add title, remove ticks from scan info.
             ax_ann_grps.set_title('Nodule Info')
@@ -638,7 +638,11 @@ class Scan(Base):
         """
         images = self.load_all_dicom_images(verbose=verbose)
 
-        volume = np.zeros((512,512,len(images)))
-        for i in range(len(images)):
-           volume[:,:,i] = images[i].pixel_array
+        volume = np.stack(
+            [
+                x.pixel_array * x.RescaleSlope + x.RescaleIntercept
+                for x in images
+            ],
+            axis=-1,
+        ).astype(np.int16)
         return volume
