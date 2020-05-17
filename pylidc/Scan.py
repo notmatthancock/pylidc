@@ -529,12 +529,15 @@ class Scan(Base):
                 a.set_visible(False) # flipped on/off by `update` function.
                 arrows.append(a)
         
-        ax_scan_info = fig.add_axes([0.1, 0.8, 0.3, 0.1]) # l,b,w,h
+        ax_scan_info = fig.add_axes([0.1, 0.7, 0.3, 0.15]) # l,b,w,h
         ax_scan_info.set_facecolor('w')
         scan_info_table = ax_scan_info.table(cellText=[
                 ['Patient ID:', self.patient_id],
                 ['Slice thickness:', '%.3f mm' % self.slice_thickness],
-                ['Pixel spacing:', '%.3f mm' % self.pixel_spacing]
+                ['Pixel spacing:', '%.3f mm' % self.pixel_spacing],
+                ['Manufacturer:', images[current_slice].Manufacturer],
+                ['Model name:', images[current_slice].ManufacturerModelName],
+                ['Convolution kernel:', images[current_slice].ConvolutionKernel],
             ],
             loc='center', cellLoc='left'
         )
