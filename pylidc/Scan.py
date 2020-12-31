@@ -232,7 +232,7 @@ class Scan(Base):
                 if len(fnames) == 0: continue
                 
                 # Gather up DICOM files in dir (if any).
-                dicom_file = [d for d in fnames if d.endswith(".dcm")]
+                dicom_file = [d for d in fnames if d.endswith(".dcm") and not d.startswith(".")]
 
                 # Skip if no DICOM files.
                 if len(dicom_file) == 0: continue
@@ -287,7 +287,7 @@ class Scan(Base):
 
         path = self.get_path_to_dicom_files()
         fnames = [fname for fname in os.listdir(path)
-                            if fname.endswith('.dcm')]
+                            if fname.endswith('.dcm') and not fname.startswith(".")]
         images = []
         for fname in fnames:
             image = dicom.dcmread(os.path.join(path,fname))
