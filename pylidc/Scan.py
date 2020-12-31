@@ -287,7 +287,7 @@ class Scan(Base):
 
         path = self.get_path_to_dicom_files()
         fnames = [fname for fname in os.listdir(path)
-                            if fname.endswith('.dcm')]
+                            if fname.endswith('.dcm') and not fname.startswith(".")]
         images = []
         for fname in fnames:
             image = dicom.dcmread(os.path.join(path,fname))
