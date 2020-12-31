@@ -232,7 +232,7 @@ class Scan(Base):
                 if len(fnames) == 0: continue
                 
                 # Gather up DICOM files in dir (if any).
-                dicom_file = [d for d in fnames if d.endswith(".dcm")]
+                dicom_file = [d for d in fnames if d.endswith(".dcm") and not d.startswith(".")]
 
                 # Skip if no DICOM files.
                 if len(dicom_file) == 0: continue
