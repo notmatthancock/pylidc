@@ -20,7 +20,12 @@ from scipy.interpolate import RegularGridInterpolator
 
 # For 3D visualizer.
 from skimage.measure import mesh_surface_area
-from skimage.measure import marching_cubes_lewiner as marching_cubes
+
+try:
+    from skimage.measure import marching_cubes
+except ImportError:
+    # Old version compatible since marching_cubes replaced with marchin_cubes_lewiner in skimage 0.19.0
+    from skimage.measure import marching_cubes_lewiner as marching_cubes
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.spatial import Delaunay
