@@ -1,12 +1,9 @@
-from os import path
 from setuptools import setup, find_packages
-from pylidc import __version__
 
 
 def main():
     setup(
         name='pylidc',
-        version=__version__,
         description='A library for working with the LIDC dataset.',
         long_description='',
         url='https://github.com/pylidc/pylidc',
@@ -38,6 +35,7 @@ def main():
             'pylidc': ['pylidc.sqlite'],
         }
     )
+
 
 if __name__ == '__main__':
     main()
