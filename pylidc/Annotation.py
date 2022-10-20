@@ -29,7 +29,7 @@ except ImportError:
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.spatial import Delaunay
-from scipy.ndimage.morphology import distance_transform_edt as dtrans
+from scipy.ndimage import distance_transform_edt as dtrans
 
 
 feature_names = \
