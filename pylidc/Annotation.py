@@ -1021,7 +1021,7 @@ class Annotation(Base):
 
         # Get dimensions, initialize mask.
         ni,nj,nk = np.diff(bb, axis=1).astype(int)[:,0] + 1
-        mask = np.zeros((ni,nj,nk), dtype=np.bool)
+        mask = np.zeros((ni,nj,nk), dtype=bool)
 
         # We check if these points are enclosed within each contour 
         # for a given slice. `test_points` is a list of image coordinate 
