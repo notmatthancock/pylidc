@@ -27,6 +27,9 @@ except ImportError:
     configparser = ConfigParser
 
 
+ClusterError = type('ClusterError', (Exception,), {})
+
+
 def _get_config_filename():
     """
     Yields the platform-specific configuration filename
@@ -451,8 +454,9 @@ class Scan(Base):
             if tol < min_tol:
                 msg = "Failed to reduce all groups to <= 4 Annotations.\n"
                 msg+= "Some nodules may be close and must be grouped manually."
-                if verbose: print(msg)
-                break
+                print(msg)
+                raise ClusterError('clusterError')
+            
             adjacency = D <= tol
             nnods, cids = connected_components(adjacency, directed=False)
             ucids = np.unique(cids)
