@@ -456,7 +456,7 @@ class Scan(Base):
                 msg = "Failed to reduce all groups to <= 4 Annotations.\n"
                 msg+= "Some nodules may be close and must be grouped manually."
                 print(msg)
-                raise ClusterError('clusterError')
+                raise ClusterError
             
             adjacency = D <= tol
             nnods, cids = connected_components(adjacency, directed=False)
