@@ -27,7 +27,8 @@ except ImportError:
     configparser = ConfigParser
 
 
-ClusterError = type('ClusterError', (Exception,), {})
+class ClusterError(Exception):
+    """Raised when clustering fails to group annotations"""
 
 
 def _get_config_filename():
