@@ -33,7 +33,7 @@ def centroid_xyz(ann1, ann2):
     Compute the euclidean distance between the x,y,z coordinates of
     each annotation's centroid.
     """
-    return np.linalg.norm(ann1.centroid(0) - ann2.centroid(0))
+    return np.linalg.norm(ann1.centroid - ann2.centroid)
 
 metrics['centroid_xyz'] = centroid_xyz
 
