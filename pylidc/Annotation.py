@@ -641,7 +641,7 @@ class Annotation(Base):
         """
         mask = self.boolean_mask()
         mask = np.pad(mask, [(1,1), (1,1), (1,1)], 'constant') # Cap the ends.
-        mask = mask.astype(np.float)
+        mask = mask.astype(float)
 
         rij  = self.scan.pixel_spacing
         rk   = self.scan.slice_thickness
@@ -752,7 +752,7 @@ class Annotation(Base):
         rk   = self.scan.slice_thickness
 
         if backend == 'matplotlib':
-            verts, faces, _, _= marching_cubes(mask.astype(np.float), 0.5,
+            verts, faces, _, _= marching_cubes(mask.astype(float), 0.5,
                                                spacing=(rij, rij, rk),
                                                step_size=step)
             fig = plt.figure(figsize=figsize)
@@ -781,7 +781,7 @@ class Annotation(Base):
         elif backend == 'mayavi':
             try:
                 from mayavi import mlab
-                sf = mlab.pipeline.scalar_field(mask.astype(np.float))
+                sf = mlab.pipeline.scalar_field(mask.astype(float))
                 sf.spacing = [rij, rij, rk]
                 mlab.pipeline.iso_surface(sf, contours=[0.5])
                 mlab.show()
@@ -1021,7 +1021,7 @@ class Annotation(Base):
 
         # Get dimensions, initialize mask.
         ni,nj,nk = np.diff(bb, axis=1).astype(int)[:,0] + 1
-        mask = np.zeros((ni,nj,nk), dtype=np.bool)
+        mask = np.zeros((ni,nj,nk), dtype=bool)
 
         # We check if these points are enclosed within each contour 
         # for a given slice. `test_points` is a list of image coordinate 
@@ -1052,7 +1052,7 @@ class Annotation(Base):
                 if not include_contour_points:
                     # Remove the contour points themselves.
                     i, j = (C - bb[:2,0]).T
-                    k = np.ones(C.shape[0], dtype=np.int)*zi
+                    k = np.ones(C.shape[0], dtype=int)*zi
                     mask[i,j,k] = False
 
         # Second, we "turn off" pixels enclosed by exclusion contours.
@@ -1072,7 +1072,7 @@ class Annotation(Base):
 
                 # Remove the contour points themselves.
                 i, j = (C - bb[:2,0]).T
-                k = np.ones(C.shape[0], dtype=np.int)*zi
+                k = np.ones(C.shape[0], dtype=int)*zi
                 mask[i,j,k] = False
 
         return mask
