@@ -141,7 +141,7 @@ def volume_viewer(vol, mask=None, axis=2, aspect=None, **line_kwargs):
         contours = []
         for i in range(nslices):
             contour = []
-            for c in find_contours(mask[slc(i)].astype(np.float), 0.5):
+            for c in find_contours(mask[slc(i)].astype(float), 0.5):
                 line = aximg.plot(c[:,1], c[:,0], **line_kwargs)[0]
                 line.set_visible(0)
                 contour.append(line)

@@ -6,25 +6,25 @@ import pydicom as dicom
 import numpy as np
 
 import sqlalchemy as sq
-from sqlalchemy.orm import relationship
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from ._Base import Base
 
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, CheckButtons
+from matplotlib.widgets import Slider
 
-from scipy.spatial.distance import cdist
 from scipy.sparse.csgraph import connected_components
 from .annotation_distance_metrics import metrics
 
-from scipy.stats import mode
 
 try:
     import configparser
 except ImportError:
     import ConfigParser
     configparser = ConfigParser
+# in Py>=3.12 SafeConfigParser was removed
+if hasattr(configparser, 'SafeConfigParser'):
+    SafeConfigParser = configparser.SafeConfigParser
+else:
+    SafeConfigParser = configparser.ConfigParser
 
 
 def _get_config_filename():
@@ -52,11 +52,11 @@ def _get_dicom_file_path_from_config_file():
     """
     conf_file = _get_config_file()
 
-    parser = configparser.SafeConfigParser()
+    parser = SafeConfigParser()
 
     if os.path.exists(conf_file):
         parser.read(conf_file)
-        
+
     try:
         return parser.get(section='dicom', option='path')
     except (configparser.NoSectionError,
@@ -176,7 +176,7 @@ class Scan(Base):
             raise ValueError(msg)
         else:
             super(Scan, self).__setattr__(name,value)
-    
+
     def get_path_to_dicom_files(self):
         """
         Get the path to where the DICOM files are stored for this scan, 
@@ -230,7 +230,7 @@ class Scan(Base):
             for dpath,dnames,fnames in os.walk(base):
                 # Skip if no files in current dir.
                 if len(fnames) == 0: continue
-                
+
                 # Gather up DICOM files in dir (if any).
                 dicom_file = [d for d in fnames if d.endswith(".dcm") and not d.startswith(".")]
 
@@ -464,7 +464,7 @@ class Scan(Base):
 
         # Sort the clusters by increasing average z value of centroids.
         # This is really a convienience thing for the `scan.visualize` method.
-        clusters = sorted(clusters, 
+        clusters = sorted(clusters,
                           key=lambda cluster: np.mean([ann.centroid[2]
                                                        for ann in cluster]))
 
@@ -528,7 +528,7 @@ class Scan(Base):
                                                       edgecolor='r'))
                 a.set_visible(False) # flipped on/off by `update` function.
                 arrows.append(a)
-        
+
         ax_scan_info = fig.add_axes([0.1, 0.7, 0.3, 0.15]) # l,b,w,h
         ax_scan_info.set_facecolor('w')
         scan_info_table = ax_scan_info.table(cellText=[
@@ -553,7 +553,7 @@ class Scan(Base):
         if annotation_groups is not None and nnods != 0:
             # The values here were chosen heuristically.
             ax_ann_grps = fig.add_axes([0.1, 0.45-nnods*0.01,
-                                        0.3, 0.2+0.01*nnods]) 
+                                        0.3, 0.2+0.01*nnods])
             txt = [['Num Nodules:', str(nnods)]]
             for i in range(nnods):
                 c = centroids[i]
