@@ -24,11 +24,11 @@ __version__ = '0.2.3'
 
 # Hidden stuff.
 import os as _os
-import pkg_resources as _pr
 from sqlalchemy import create_engine as _create_engine
 from sqlalchemy.orm import sessionmaker as _sessionmaker
 
-_dbpath  = _pr.resource_filename('pylidc', 'pylidc.sqlite')
+_dbpath  = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                         'pylidc.sqlite')
 _engine  = _create_engine('sqlite:///'+_dbpath)
 _session = _sessionmaker(bind=_engine)()
 
